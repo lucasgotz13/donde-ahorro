@@ -12,7 +12,7 @@ Self-hosted PWA that compares CABA supermarket prices every day, using SEPA pric
 
 ## Requirements
 
-- Node.js 24+
+- Node.js 26 LTS (`.nvmrc`)
 - pnpm 12.21.0, installed standalone (Corepack is not used)
 - Docker with Compose, for self-hosting
 

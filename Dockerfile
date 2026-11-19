@@ -1,5 +1,5 @@
 # Corepack is not used (Node.js 25+ stops shipping it), so pnpm is installed explicitly.
-FROM node:24-slim AS base
+FROM node:26-slim AS base
 RUN npm install -g pnpm@12.21.0
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY . .
 FROM deps AS web-build
 RUN pnpm --filter @donde-ahorro/web build
 
-FROM node:24-slim AS web
+FROM node:26-slim AS web
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=web-build /app/apps/web/.next/standalone ./
