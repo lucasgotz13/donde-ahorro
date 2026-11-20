@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@donde-ahorro/core": "workspace:*",
-    "@donde-ahorro/db": "workspace:*"
+    "@donde-ahorro/db": "workspace:*",
+    "postgres": "4.1.1"
   }
 }

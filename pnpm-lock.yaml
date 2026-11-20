@@ -193,6 +193,9 @@ importers:
       '@donde-ahorro/db':
         specifier: workspace:*
         version: link:../../packages/db
+      postgres:
+        specifier: 4.1.1
+        version: 4.1.1
 
   apps/web:
     dependencies:
