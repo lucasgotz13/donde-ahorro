@@ -1,0 +1,6 @@
+id_comercio|id_bandera|id_sucursal|sucursales_nombre|sucursales_tipo|sucursales_calle|sucursales_numero|sucursales_latitud|sucursales_longitud|sucursales_observaciones|sucursales_barrio|sucursales_codigo_postal|sucursales_localidad|sucursales_provincia|sucursales_lunes_horario_atencion|sucursales_martes_horario_atencion|sucursales_miercoles_horario_atencion|sucursales_jueves_horario_atencion|sucursales_viernes_horario_atencion|sucursales_sabado_horario_atencion|sucursales_domingo_horario_atencion
+12|1|44|MONROE |Supermercado|Av. Monroe|3284|-34.5635828|-58.4684123|||1430|Belgrano|AR-C|8:30 a 22:00|8:30 a 22:00|8:30 a 22:00|8:30 a 22:00|8:30 a 22:30|8:30 a 22:30|9:00 a 21:30
+12|1|56|HONDURAS |Hipermercado|Honduras|3862|-34.5941284|-58.417548|||1180|Palermo|AR-C|8:30 a 22:00|8:30 a 22:00|8:30 a 22:00|8:30 a 22:00|8:30 a 22:00|8:30 a 22:30|9:00 a 22:00
+12|1|13|RUTA 3 |Supermercado|Av. Brig. Gral. Juan Manuel de Rosas|14457|-34.764146|-58.6200547|||1759|Gonzalez Catan|AR-B|8:30 a 13:00 - 16:00 a 20:30|8:30 a 13:00 - 16:00 a 20:30|8:30 a 13:00 - 16:00 a 20:30|8:30 a 13:00 - 16:00 a 20:30|8:30 a 20:30|8:30 a 21:00|Cerrado
+
+Ultima actualizacion: 2026-11-19T01:11:08-03:00
