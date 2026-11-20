@@ -24,7 +24,7 @@ pnpm install
 cp .env.example .env
 docker compose up -d db
 pnpm db:migrate
-pnpm test        # Vitest; db tests are skipped without DATABASE_URL
+pnpm test        # Vitest; db tests need Postgres running, or no DATABASE_URL to skip them
 pnpm typecheck
 pnpm dev:web     # http://localhost:3000
 pnpm ingest

@@ -55,8 +55,8 @@ describe.skipIf(!adminUrl)("database schema", () => {
   });
 
   it("keeps closed periods as history", async () => {
-    const id = await productId();
-    await sql`update price_periods set valid_to = '2026-11-19' where product_id = ${id} and valid_to is null`;
+    const id = (await sql`insert into products (ean, description) values ('7790000000002', 'Arroz 1 kg') returning id`)[0]!.id;
+    await sql`insert into price_periods (product_id, branch_id, price, valid_from, valid_to, last_seen) values (${id}, '10-1-200', 150000, '2026-11-01', '2026-11-19', '2026-11-18')`;
     await sql`insert into price_periods (product_id, branch_id, price, valid_from, last_seen) values (${id}, '10-1-200', 160000, '2026-11-19', '2026-11-19')`;
     const history = await sql`select price from price_periods where product_id = ${id} order by valid_from`;
     expect(history.map((p) => p.price)).toEqual([150000, 160000]);
@@ -73,6 +73,9 @@ describe.skipIf(!adminUrl)("database schema", () => {
   it("requires an EAN or a chain product code", async () => {
     await expect(sql`insert into products (description) values ('Sin código')`).rejects.toThrow(/products_identity/);
     await sql`insert into products (chain_id, chain_product_code, description) values ('coto', 'C-1', 'Pan del día')`;
+    await expect(
+      sql`insert into products (chain_id, chain_product_code, description) values ('coto', 'C-1', 'Otro pan')`,
+    ).rejects.toThrow(/products_chain_code/);
   });
 
   it("rejects a duplicate EAN", async () => {
@@ -90,6 +93,19 @@ describe.skipIf(!adminUrl)("database schema", () => {
     await insert({ amount: null, period: null, unknown: true });
     await expect(insert({ amount: 1500000, period: null, unknown: false })).rejects.toThrow(/promotions_cap/);
     await expect(insert({ amount: 1500000, period: "month", unknown: true })).rejects.toThrow(/promotions_cap/);
+  });
+
+  it("rejects a percent outside (0, 100]", async () => {
+    await expect(
+      sql`insert into promotions (id, chain_id, kind, percent, channel, valid_from, valid_to) values ('p-0', 'coto', 'discount', 0, 'both', '2026-11-01', '2026-11-30')`,
+    ).rejects.toThrow(/promotions_percent/);
+  });
+
+  // The ingest worker migrates on every start.
+  it("migrates again without changes", async () => {
+    await migrate(url.toString());
+    const rows = await sql`select count(*)::int as count from drizzle.__drizzle_migrations`;
+    expect(rows[0]!.count).toBe(1);
   });
 
   // S18: each adapter maps its raw entity names to the canonical catalog.

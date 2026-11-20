@@ -1,8 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate as runMigrations } from "drizzle-orm/postgres-js/migrator";
+import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
-const migrationsFolder = new URL("../migrations", import.meta.url).pathname;
+const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 
 /** Applies pending migrations; safe to run on every start. */
 export async function migrate(databaseUrl: string): Promise<void> {
