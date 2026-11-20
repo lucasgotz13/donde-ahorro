@@ -7,4 +7,6 @@ export interface PriceRecord {
   price: Cents;
   validFrom: IsoDate;
   validTo: IsoDate | null;
+  /** Last SEPA publication that reported this price; drives staleness (S9). */
+  lastSeen: IsoDate;
 }

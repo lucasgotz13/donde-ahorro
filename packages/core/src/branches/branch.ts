@@ -4,6 +4,7 @@ export interface Branch {
   chainId: string;
   name: string;
   address: string;
-  lat: number;
-  lng: number;
+  /** `null` when SEPA has no coordinates; such branches cannot be found by proximity. */
+  lat: number | null;
+  lng: number | null;
 }

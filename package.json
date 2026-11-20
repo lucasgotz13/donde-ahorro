@@ -11,7 +11,9 @@
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
     "dev:web": "pnpm --filter @donde-ahorro/web dev",
-    "ingest": "pnpm --filter @donde-ahorro/ingest start"
+    "ingest": "pnpm --filter @donde-ahorro/ingest start",
+    "db:generate": "pnpm --filter @donde-ahorro/db generate",
+    "db:migrate": "pnpm --filter @donde-ahorro/db migrate"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

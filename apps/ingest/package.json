@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/main.ts",
+    "start": "node --env-file-if-exists=../../.env src/main.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@donde-ahorro/core": "workspace:*"
+    "@donde-ahorro/core": "workspace:*",
+    "@donde-ahorro/db": "workspace:*"
   }
 }
