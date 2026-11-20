@@ -61,11 +61,11 @@ export async function loadChain(
 
     // S10: one product per EAN across chains; codes that are not EANs belong to their chain.
     await tx`insert into products (ean, description, brand, presentation)
-      select distinct on (code) code, description, brand, presentation from staging where is_ean order by code
+      select distinct on (code) code, description, brand, presentation from staging where is_ean order by code, description
       on conflict (ean) do nothing`;
     await tx`insert into products (chain_id, chain_product_code, description, brand, presentation)
       select distinct on (chain_id, code) chain_id, code, description, brand, presentation from staging where not is_ean
-      order by chain_id, code
+      order by chain_id, code, description
       on conflict (chain_id, chain_product_code) do nothing`;
     await tx`create temp table today on commit drop as
       select distinct on (product_id, branch_id) product_id, branch_id, price from (

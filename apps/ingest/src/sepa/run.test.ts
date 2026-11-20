@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { createTestDatabase } from "@donde-ahorro/db";
+import { createTestDatabase } from "@donde-ahorro/db/test-database";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolveSepaUrl, weekdayInArgentina } from "./download.ts";
@@ -66,7 +66,7 @@ describe.skipIf(!adminUrl)("runSepa", () => {
     db = await createTestDatabase(adminUrl!);
     sql = db.sql;
   });
-  afterAll(() => db.drop());
+  afterAll(() => db?.drop());
 
   it("downloads, loads every MVP chain and logs the run", async () => {
     await runSepa(sql, options());

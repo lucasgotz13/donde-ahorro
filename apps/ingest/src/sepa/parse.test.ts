@@ -45,6 +45,13 @@ describe("readRecords", () => {
     expect(stats.malformed).toBe(2);
   });
 
+  it("counts a row with too many fields once", async () => {
+    const stats = { malformed: 0 };
+    const input = Readable.from([`${header}\n12|1|44|1|1|A|1|kg|X|100|100|1|kg|||||extra\n`]);
+    for await (const _ of readRecords(input, stats));
+    expect(stats.malformed).toBe(1);
+  });
+
   it("keeps double quotes as literal text", async () => {
     const input = Readable.from([`${header}\r\n12|1|44|1|0|PICADA "LA TRADICIONAL"  X KG|1|kgm|.|100|100|1|kgm||||\r\n`]);
     const [record] = await collect(input);

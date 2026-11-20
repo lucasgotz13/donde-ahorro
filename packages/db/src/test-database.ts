@@ -9,7 +9,13 @@ export async function createTestDatabase(adminUrl: string) {
   await admin.unsafe(`create database ${name}`);
   const url = new URL(adminUrl);
   url.pathname = `/${name}`;
-  await migrate(url.toString());
+  try {
+    await migrate(url.toString());
+  } catch (error) {
+    await admin.unsafe(`drop database if exists ${name} with (force)`);
+    await admin.end();
+    throw error;
+  }
   const sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
   return {
     url: url.toString(),

@@ -24,14 +24,15 @@ export async function* readRecords(input: Readable, stats = { malformed: 0 }): A
       continue;
     }
     if (fields.length > header.length) {
-      // The pending fragment was a broken row, not the first half of this one.
-      stats.malformed++;
-      fields = line.split("|");
-      if (fields.length !== header.length) {
-        pending = fields.length < header.length ? line : "";
-        if (!pending) stats.malformed++;
-        continue;
+      if (pending) {
+        // The pending fragment was a broken row, not the first half of this one.
+        stats.malformed++;
+        fields = line.split("|");
       }
+      pending = "";
+      if (fields.length < header.length) pending = line;
+      if (fields.length > header.length) stats.malformed++;
+      if (fields.length !== header.length) continue;
     }
     pending = "";
     yield Object.fromEntries(header.map((name, i) => [name, fields[i]!]));
