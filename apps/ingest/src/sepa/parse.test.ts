@@ -58,6 +58,7 @@ describe("toCents", () => {
     ["3178.99", 317899],
     [".4", 40],
     ["8922.5", 892250],
+    ["12.", 1200],
   ])("converts %s to %i cents", (value, cents) => expect(toCents(value)).toBe(cents));
 
   it.each(["", "-190.00", "0", "abc"])("rejects %j", (value) => expect(toCents(value)).toBeNull());

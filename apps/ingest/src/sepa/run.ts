@@ -22,10 +22,14 @@ export async function runSepa(
     const lastModified = await fetchLastModified(url);
     // Each weekday's ZIP is overwritten weekly: until today's is out, it holds last week's prices.
     if (dateInArgentina(lastModified) !== dateInArgentina(now)) {
-      return await finish({ status: "skipped", message: `SEPA ZIP for ${weekdayInArgentina(now)} not published yet` });
+      return await finish({
+        status: "skipped",
+        message: `SEPA ZIP for ${weekdayInArgentina(now)} not published yet`,
+        source_last_modified: lastModified,
+      });
     }
     if (previous?.source_last_modified?.getTime() === lastModified.getTime()) {
-      return await finish({ status: "skipped", message: "SEPA ZIP unchanged" });
+      return await finish({ status: "skipped", message: "SEPA ZIP unchanged", source_last_modified: lastModified });
     }
     const zip = join(dir, "sepa.zip");
     await download(url, zip);

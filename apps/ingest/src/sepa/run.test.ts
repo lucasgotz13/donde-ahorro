@@ -80,7 +80,11 @@ describe.skipIf(!adminUrl)("runSepa", () => {
 
   it("skips the download when last-modified did not change", async () => {
     await runSepa(sql, options());
-    expect((await runs())[1]).toMatchObject({ status: "skipped", message: "SEPA ZIP unchanged" });
+    expect((await runs())[1]).toMatchObject({
+      status: "skipped",
+      message: "SEPA ZIP unchanged",
+      source_last_modified: new Date(lastModified),
+    });
     expect(requests.filter((r) => r.startsWith("GET /download"))).toHaveLength(1);
   });
 

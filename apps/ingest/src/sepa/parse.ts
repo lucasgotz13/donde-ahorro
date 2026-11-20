@@ -39,9 +39,9 @@ export async function* readRecords(input: Readable, stats = { malformed: 0 }): A
   if (pending) stats.malformed++;
 }
 
-/** SEPA prices are pesos with a dot decimal (`22617`, `3178.99`, `.4`); returns positive cents or `null`. */
+/** SEPA prices are pesos with a dot decimal (`22617`, `3178.99`, `.4`, `12.`); returns positive cents or `null`. */
 export function toCents(value: string): number | null {
-  if (!/^\d*\.?\d+$/.test(value)) return null;
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(value)) return null;
   const cents = Math.round(Number(value) * 100);
   return cents > 0 ? cents : null;
 }

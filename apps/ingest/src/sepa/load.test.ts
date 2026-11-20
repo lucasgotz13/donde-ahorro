@@ -78,6 +78,29 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
     expect(await periods("D")).toEqual([{ price: 110, from: "2026-11-01", to: null, seen: "2026-11-01" }]);
   });
 
+  // A republished ZIP on the same day (new last-modified) carries corrected prices.
+  it("applies a same-day correction to a period opened on an earlier day", async () => {
+    await load("2026-11-05", row("R", 100));
+    await load("2026-11-06", row("R", 100));
+    await load("2026-11-06", row("R", 130));
+    expect(await periods("R")).toEqual([
+      { price: 100, from: "2026-11-05", to: "2026-11-06", seen: "2026-11-06" },
+      { price: 130, from: "2026-11-06", to: null, seen: "2026-11-06" },
+    ]);
+  });
+
+  it("never lets an older day rewrite a newer price", async () => {
+    await load("2026-11-05", row("O", 100));
+    await load("2026-11-07", row("O", 100));
+    await load("2026-11-05", row("O", 90));
+    expect(await periods("O")).toEqual([{ price: 100, from: "2026-11-05", to: null, seen: "2026-11-07" }]);
+  });
+
+  it("keeps the lowest price when a file lists a product twice for one branch", async () => {
+    await load("2026-11-01", row("T", 200), row("T", 100));
+    expect(await periods("T")).toEqual([{ price: 100, from: "2026-11-01", to: null, seen: "2026-11-01" }]);
+  });
+
   it("ignores an older publication, so periods never overlap", async () => {
     await load("2026-11-03", row("E", 100));
     await load("2026-11-02", row("E", 90));
