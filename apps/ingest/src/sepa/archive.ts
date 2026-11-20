@@ -13,7 +13,10 @@ export async function listInnerArchives(outerZip: string): Promise<Map<number, s
   const inner = new Map<number, string>();
   for (const entry of stdout.split("\n")) {
     const match = /comercio-sepa-(\d+)_[^/]*\.zip$/.exec(entry);
-    if (match) inner.set(Number(match[1]), entry);
+    if (!match) continue;
+    const comercio = Number(match[1]);
+    if (inner.has(comercio)) throw new Error(`SEPA archive has two archives for comercio ${comercio}: ${inner.get(comercio)}, ${entry}`);
+    inner.set(comercio, entry);
   }
   return inner;
 }
@@ -25,6 +28,8 @@ export function readEntry(zip: string, entry: string): Readable {
   child.stdout.pipe(out, { end: false });
   child.on("error", (error) => out.destroy(error));
   child.on("close", (code) => (code === 0 ? out.end() : out.destroy(new Error(`unzip exited with code ${code} reading ${entry}`))));
+  // A consumer that stops early must not leave unzip blocked on a full pipe.
+  out.on("close", () => child.exitCode === null && child.kill());
   return out;
 }
 

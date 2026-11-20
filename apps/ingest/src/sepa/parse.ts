@@ -6,28 +6,37 @@ export type SepaRecord = Record<string, string>;
 /**
  * Reads a SEPA pipe-delimited CSV. Quotes are literal text (SEPA never quotes fields), a record
  * may be split across two lines (Coto breaks some after `productos_ean`), and the file ends with
- * a blank line plus an "Última actualización" footer, which are skipped.
+ * a blank line plus an "Última actualización" footer, which are skipped. Rows that cannot be read
+ * are counted in `stats.malformed`.
  */
-export async function* readRecords(input: Readable): AsyncGenerator<SepaRecord> {
+export async function* readRecords(input: Readable, stats = { malformed: 0 }): AsyncGenerator<SepaRecord> {
   let header: string[] | undefined;
   let pending = "";
   for await (const line of createInterface({ input, crlfDelay: Infinity })) {
     if (!header) {
-      header = line.replace(/^﻿/, "").split("|");
+      header = line.replace(/^\uFEFF/, "").split("|");
       continue;
     }
     if (!pending && !line.includes("|")) continue;
-    const joined = pending + line;
-    const fields = joined.split("|");
+    let fields = (pending + line).split("|");
     if (fields.length < header.length) {
-      pending = joined;
+      pending += line;
       continue;
     }
+    if (fields.length > header.length) {
+      // The pending fragment was a broken row, not the first half of this one.
+      stats.malformed++;
+      fields = line.split("|");
+      if (fields.length !== header.length) {
+        pending = fields.length < header.length ? line : "";
+        if (!pending) stats.malformed++;
+        continue;
+      }
+    }
     pending = "";
-    // shortcut: a record with too many fields is dropped silently; count them if malformed rows show up.
-    if (fields.length > header.length) continue;
     yield Object.fromEntries(header.map((name, i) => [name, fields[i]!]));
   }
+  if (pending) stats.malformed++;
 }
 
 /** SEPA prices are pesos with a dot decimal (`22617`, `3178.99`, `.4`); returns positive cents or `null`. */

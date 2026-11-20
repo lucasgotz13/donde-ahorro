@@ -103,9 +103,10 @@ describe.skipIf(!adminUrl)("database schema", () => {
 
   // The ingest worker migrates on every start.
   it("migrates again without changes", async () => {
+    const count = async () => (await sql`select count(*)::int as count from drizzle.__drizzle_migrations`)[0]!.count;
+    const before = await count();
     await migrate(url.toString());
-    const rows = await sql`select count(*)::int as count from drizzle.__drizzle_migrations`;
-    expect(rows[0]!.count).toBe(1);
+    expect(await count()).toBe(before);
   });
 
   // S18: each adapter maps its raw entity names to the canonical catalog.

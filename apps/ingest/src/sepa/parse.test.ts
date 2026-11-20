@@ -36,6 +36,15 @@ describe("readRecords", () => {
     }
   });
 
+  it("recovers the next record after a short row and counts what it drops", async () => {
+    const stats = { malformed: 0 };
+    const input = Readable.from([`${header}\n12|1|44|1\n12|1|44|2|1|ARROZ|1|kg|X|100|100|1|kg||||\n12|1|44|3|1\n`]);
+    const records = [];
+    for await (const record of readRecords(input, stats)) records.push(record);
+    expect(records.map((r) => r.id_producto)).toEqual(["2"]);
+    expect(stats.malformed).toBe(2);
+  });
+
   it("keeps double quotes as literal text", async () => {
     const input = Readable.from([`${header}\r\n12|1|44|1|0|PICADA "LA TRADICIONAL"  X KG|1|kgm|.|100|100|1|kgm||||\r\n`]);
     const [record] = await collect(input);
