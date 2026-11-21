@@ -1,0 +1,133 @@
+import type postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getPriceHistory, getProduct, lastSepaUpdate, searchProducts, similarProducts } from "./queries.ts";
+import { createTestDatabase } from "./test-database.ts";
+
+const adminUrl = process.env.DATABASE_URL;
+
+describe.skipIf(!adminUrl)("product queries", () => {
+  let db: Awaited<ReturnType<typeof createTestDatabase>>;
+  let sql: postgres.Sql;
+  const ids: Record<string, string> = {};
+
+  beforeAll(async () => {
+    db = await createTestDatabase(adminUrl!);
+    sql = db.sql;
+    await sql`insert into chains (id, name, sepa_comercio_id, sepa_bandera_id) values
+      ('coto', 'Coto', 12, 1), ('dia', 'Día', 15, 1), ('jumbo', 'Jumbo', 9, 3)`;
+    await sql`insert into branches (id, chain_id, name, address) values
+      ('12-1-1', 'coto', 'Coto Caballito', 'Av. Rivadavia 5000'),
+      ('12-1-2', 'coto', 'Coto Palermo', 'Av. Santa Fe 3000'),
+      ('15-1-1', 'dia', 'Día Almagro', 'Medrano 800'),
+      ('9-3-1', 'jumbo', 'Jumbo Palermo', 'Bullrich 345')`;
+    const product = async (key: string, fields: Record<string, string | null>) => {
+      const [row] = await sql`insert into products ${sql(fields)} returning id::text`;
+      ids[key] = row!.id;
+    };
+    await product("dulce", { ean: "7790001", description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM", brand: "LA SERENISIMA", presentation: "400 grm" });
+    await product("dulceRepostero", { ean: "7790002", description: "DULCE DE LECHE REPOSTERO LA SERENISIMA POT 400 GRM", brand: "LA SERENISIMA", presentation: "400 grm" });
+    await product("crema", { ean: "7790003", description: "CREMA DE LECHE LA SERENISIMA POT 200 CC", brand: "LA SERENISIMA", presentation: "200 cmq" });
+    await product("bano", { ean: "7790004", description: "BAÑO REPOSTERO LECHE AGUILA SCH 150 GRM", brand: "AGUILA", presentation: "150 grm" });
+    await product("leche", { ean: "7790005", description: "LECHE ENTERA LA SERENISIMA SACHET 1 LT", brand: "LA SERENISIMA", presentation: "1 lt" });
+    const period = (key: string, branch: string, price: number, from: string, to: string | null, lastSeen: string) =>
+      sql`insert into price_periods (product_id, branch_id, price, valid_from, valid_to, last_seen) values (${ids[key]!}, ${branch}, ${price}, ${from}, ${to}, ${lastSeen})`;
+    await period("dulce", "12-1-1", 250000, "2026-11-01", "2026-11-10", "2026-11-09");
+    await period("dulce", "12-1-1", 270000, "2026-11-10", null, "2026-11-20");
+    await period("dulce", "12-1-2", 260000, "2026-11-01", null, "2026-11-20");
+    await period("dulce", "15-1-1", 240000, "2026-11-05", null, "2026-11-12");
+    await period("dulce", "9-3-1", 300000, "2026-11-01", "2026-11-08", "2026-11-07");
+    await period("dulceRepostero", "12-1-1", 280000, "2026-11-01", null, "2026-11-20");
+    await period("leche", "15-1-1", 150000, "2026-11-01", null, "2026-11-20");
+  });
+  afterAll(() => db?.drop());
+
+  describe("searchProducts", () => {
+    it("matches every word in any order, without accents or case", async () => {
+      const found = await searchProducts(sql, "serenisima  dulce");
+      expect(found.map((p) => p.id)).toEqual([ids.dulce, ids.dulceRepostero]);
+      expect((await searchProducts(sql, "baño")).map((p) => p.id)).toEqual([ids.bano]);
+      expect((await searchProducts(sql, "BANO")).map((p) => p.id)).toEqual([ids.bano]);
+    });
+
+    it("lists descriptions that start with the first word first, then those sold by more chains, then shorter ones", async () => {
+      // dulce: 2 chains; dulceRepostero: 1; crema and bano: 0, equal lengths, so insertion order.
+      expect((await searchProducts(sql, "leche")).map((p) => p.id)).toEqual([ids.leche, ids.dulce, ids.dulceRepostero, ids.crema, ids.bano]);
+    });
+
+    it("finds a product by its EAN", async () => {
+      expect((await searchProducts(sql, "7790003")).map((p) => p.id)).toEqual([ids.crema]);
+    });
+
+    it("returns the cheapest current price and how many chains sell it", async () => {
+      const [dulce] = await searchProducts(sql, "dulce clasico");
+      expect(dulce).toEqual({
+        id: ids.dulce,
+        description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM",
+        brand: "LA SERENISIMA",
+        presentation: "400 grm",
+        minPrice: 240000,
+        chains: 2,
+      });
+      const [bano] = await searchProducts(sql, "baño");
+      expect(bano).toMatchObject({ minPrice: null, chains: 0 });
+    });
+
+    it("returns nothing for a blank query or one without a word of 3 letters", async () => {
+      expect(await searchProducts(sql, "   ")).toEqual([]);
+      expect(await searchProducts(sql, "de la")).toEqual([]);
+      expect((await searchProducts(sql, "de la dulce")).map((p) => p.id)).toEqual([ids.dulce, ids.dulceRepostero]);
+    });
+  });
+
+  describe("getProduct", () => {
+    it("groups current prices by chain, cheapest chain first, with every branch", async () => {
+      const product = await getProduct(sql, ids.dulce!);
+      expect(product).toMatchObject({ id: ids.dulce, ean: "7790001", brand: "LA SERENISIMA" });
+      expect(product!.chains).toEqual([
+        {
+          chainId: "dia",
+          chainName: "Día",
+          minPrice: 240000,
+          maxPrice: 240000,
+          lastSeen: "2026-11-12",
+          branches: [{ branchId: "15-1-1", name: "Día Almagro", address: "Medrano 800", price: 240000, lastSeen: "2026-11-12" }],
+        },
+        {
+          chainId: "coto",
+          chainName: "Coto",
+          minPrice: 260000,
+          maxPrice: 270000,
+          lastSeen: "2026-11-20",
+          branches: [
+            { branchId: "12-1-2", name: "Coto Palermo", address: "Av. Santa Fe 3000", price: 260000, lastSeen: "2026-11-20" },
+            { branchId: "12-1-1", name: "Coto Caballito", address: "Av. Rivadavia 5000", price: 270000, lastSeen: "2026-11-20" },
+          ],
+        },
+      ]);
+    });
+
+    it("is undefined for an unknown product", async () => {
+      expect(await getProduct(sql, "999999")).toBeUndefined();
+    });
+  });
+
+  it("getPriceHistory returns every period with its chain", async () => {
+    const history = await getPriceHistory(sql, ids.dulce!);
+    expect(history).toHaveLength(5);
+    expect(history).toContainEqual({ chainId: "jumbo", chainName: "Jumbo", price: 300000, validFrom: "2026-11-01", validTo: "2026-11-08" });
+  });
+
+  // S10: description matches are shown as "productos similares", never merged.
+  it("similarProducts shares brand, presentation and first word, excluding the product itself", async () => {
+    const similar = await similarProducts(sql, ids.dulce!);
+    expect(similar).toEqual([{ id: ids.dulceRepostero, description: "DULCE DE LECHE REPOSTERO LA SERENISIMA POT 400 GRM", presentation: "400 grm", minPrice: 280000 }]);
+  });
+
+  it("lastSepaUpdate is the publication of the latest succeeded SEPA run", async () => {
+    expect(await lastSepaUpdate(sql)).toBeUndefined();
+    await sql`insert into ingest_runs (source, status, source_last_modified, started_at) values
+      ('sepa', 'succeeded', '2026-11-19T16:19:56Z', '2026-11-19T17:00:00Z'),
+      ('sepa', 'skipped', '2026-11-13T16:19:56Z', '2026-11-20T17:00:00Z')`;
+    expect((await lastSepaUpdate(sql))?.toISOString()).toBe("2026-11-19T16:19:56.000Z");
+  });
+});
