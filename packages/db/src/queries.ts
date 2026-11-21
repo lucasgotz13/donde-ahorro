@@ -281,3 +281,55 @@ export async function getCartProducts(sql: Sql, ids: string[], branchIds?: strin
 export async function getChainNames(sql: Sql): Promise<Record<string, string>> {
   return Object.fromEntries((await sql`select id, name from chains`).map((c) => [c.id, c.name]));
 }
+
+/** Ingest sources in the order /estado lists them. */
+export const SOURCES = ["sepa", "coto", "carrefour"] as const;
+
+/** S11: which promotion source covers each chain; chains not listed have no promotion scraper yet. */
+export const PROMOTION_SOURCE_BY_CHAIN: Record<string, (typeof SOURCES)[number]> = {
+  coto: "coto",
+  "carrefour-hiper": "carrefour",
+  "carrefour-market": "carrefour",
+  "carrefour-express": "carrefour",
+  "carrefour-maxi": "carrefour",
+};
+
+export interface SourceStatus {
+  source: string;
+  lastRun?: { status: "running" | "succeeded" | "failed" | "skipped"; startedAt: Date; finishedAt: Date | null; message: string | null };
+  /** When the last succeeded run finished. */
+  lastSuccess?: Date;
+  /** SEPA only: when the loaded ZIP was published. */
+  publishedAt?: Date;
+}
+
+/** S23: each source's latest run and latest success, from `ingest_runs`. */
+export async function getSourceStatus(sql: Sql): Promise<SourceStatus[]> {
+  const [last, success] = await Promise.all([
+    sql`select distinct on (source) source, status, started_at, finished_at, message from ingest_runs order by source, started_at desc`,
+    sql`select distinct on (source) source, finished_at, source_last_modified from ingest_runs
+      where status = 'succeeded' order by source, started_at desc`,
+  ]);
+  return SOURCES.map((source) => {
+    const run = last.find((r) => r.source === source);
+    const ok = success.find((r) => r.source === source);
+    return {
+      source,
+      ...(run && { lastRun: { status: run.status, startedAt: run.started_at, finishedAt: run.finished_at, message: run.message } }),
+      ...(ok && { lastSuccess: ok.finished_at }),
+      ...(ok?.source_last_modified && { publishedAt: ok.source_last_modified }),
+    };
+  });
+}
+
+const PROMOS_FRESH_MS = 48 * 3600_000;
+
+/** S11: chain id → whether its promotions were scraped successfully in the last 48 hours. */
+export async function promotionCoverage(sql: Sql, now = new Date()): Promise<Record<string, boolean>> {
+  const status = await getSourceStatus(sql);
+  const fresh = (source: string) => {
+    const at = status.find((s) => s.source === source)?.lastSuccess;
+    return at !== undefined && now.getTime() - at.getTime() < PROMOS_FRESH_MS;
+  };
+  return Object.fromEntries(Object.entries(PROMOTION_SOURCE_BY_CHAIN).map(([chain, source]) => [chain, fresh(source)]));
+}
