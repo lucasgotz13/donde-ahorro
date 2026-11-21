@@ -12,9 +12,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="page">
-      <Link href="/" className="wordmark">
-        Dónde Ahorro
-      </Link>
       <h1 className="headline">¿Qué querés comprar?</h1>
       <p className="lede">
         Precios de Coto, Carrefour, Día, Disco, Jumbo y Vea en CABA, del registro oficial SEPA.

@@ -365,3 +365,120 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Site header: the wordmark and the user's branches, on every page. */
+.site-header {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.25rem var(--gutter) 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.header-link {
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.page {
+  padding-top: 0;
+}
+
+.scope {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+/* Branch selection */
+.locate {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-button:disabled {
+  color: var(--muted);
+  cursor: progress;
+}
+
+.branch-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* A legend does not take the heading's top margin; the fieldset carries the gap instead. */
+.branch-form fieldset + fieldset,
+.branch-form {
+  padding-top: 1.5rem;
+}
+
+.branch-form legend {
+  padding: 0 0 0.75rem;
+  margin: 0;
+}
+
+.branch-form .rows {
+  margin-top: 0;
+}
+
+.branch-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+
+.branch-option input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--ink);
+}
+
+.branch-chain {
+  font-weight: 700;
+}
+
+.branch-distance {
+  color: var(--muted);
+  font-size: var(--step--1);
+  white-space: nowrap;
+}
+
+/* The save button stays reachable while the lists scroll. */
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 1.5rem;
+  padding: 0.75rem 0;
+  background: var(--wall);
+}
+
+.save-bar button {
+  width: 100%;
+  padding: 0.875rem;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--wall);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}

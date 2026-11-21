@@ -30,6 +30,9 @@ export const sentenceCase = (text: string): string => {
 export const titleCase = (text: string): string =>
   text.toLocaleLowerCase("es-AR").replace(/(^|[\s-])(\p{L})/gu, (_, sep: string, letter: string) => sep + letter.toLocaleUpperCase("es-AR"));
 
+/** SEPA branch names and addresses mix cases; only all-caps ones are retitled ("CL BEIRO 3146"). */
+export const tidy = (text: string): string => (text === text.toLocaleUpperCase("es-AR") ? titleCase(text) : text);
+
 export const todayInArgentina = (now = new Date()): IsoDate =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(now);
 
