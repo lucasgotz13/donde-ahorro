@@ -5,3 +5,6 @@ next-env.d.ts
 *.tsbuildinfo
 .codegraph/
 .atl/
+.next-e2e/
+test-results/
+playwright-report/

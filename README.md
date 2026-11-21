@@ -25,6 +25,7 @@ cp .env.example .env
 docker compose up -d db
 pnpm db:migrate
 pnpm test        # Vitest; db tests need Postgres running, or no DATABASE_URL to skip them
+pnpm test:e2e    # Playwright: recreates the donde_ahorro_e2e database from fixtures, serves on :3200
 pnpm typecheck
 pnpm dev:web     # http://localhost:3000
 pnpm ingest
@@ -33,6 +34,8 @@ pnpm db:generate # after editing packages/db/src/schema.ts
 ```
 
 If port 5432 is taken, set `POSTGRES_PORT` (and the port in `DATABASE_URL`) in `.env`.
+
+E2E tests use the system Chromium (`/usr/bin/chromium`, or `CHROMIUM_PATH`); without one, run `pnpm --filter @donde-ahorro/web exec playwright install chromium` and unset `CHROMIUM_PATH`. They never touch the development database or live sites.
 
 ## Self-hosting
 
