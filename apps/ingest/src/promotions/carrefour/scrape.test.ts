@@ -143,7 +143,6 @@ describe.skipIf(!adminUrl)("runCarrefour", () => {
     const reasons = new Set(run!.stats.skipped.map((s: { reason: string }) => s.reason));
     expect(reasons).toEqual(
       new Set([
-        "entidad desconocida: Cuenta Digital",
         "entidad desconocida: Mi Carrefour",
         "entidad desconocida: Ahorra con MODO. 10% Acumulable. Pagando desde tu App.",
         "entidad desconocida: Si sos empleado/a público todos los jueves",
@@ -153,6 +152,7 @@ describe.skipIf(!adminUrl)("runCarrefour", () => {
     expect(run!.stats.saved + run!.stats.skipped.length).toBe(92);
     const rows = await sql`select id, chain_id, kind, percent, entity_id, payment_medium_id, weekdays, cap_amount, cap_period, cap_unknown, channel, valid_from, valid_to, stackable from promotions order by id`;
     expect(rows).toHaveLength(run!.stats.saved);
+    expect(rows.filter((r) => r.id.startsWith("carrefour:84a8157a-")).map((r) => r.entity_id)).toContain("carrefour-cuenta-digital");
     expect(rows.some((r) => r.entity_id === null && !r.id.startsWith("carrefour:41bd454d"))).toBe(false);
     expect(rows.find((r) => r.id === "carrefour:fde9dbc1-5134-4b4f-9279-14440543c66d:carrefour-hiper")).toMatchObject({
       chain_id: "carrefour-hiper",

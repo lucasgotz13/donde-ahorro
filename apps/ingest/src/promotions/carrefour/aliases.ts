@@ -2,7 +2,7 @@ import type { Aliases } from "../store.ts";
 
 /**
  * S18: Carrefour's MasterData bank (FB) and card (FC) names → catalog ids. Names with no canonical id
- * stay out so their promotions are skipped as "entidad desconocida" (e.g. Cuenta Digital, Mi Carrefour,
+ * stay out so their promotions are skipped as "entidad desconocida" (e.g. Mi Carrefour,
  * card networks, regional banks).
  */
 export const CARREFOUR_ALIASES: Aliases = {
@@ -27,6 +27,7 @@ export const CARREFOUR_ALIASES: Aliases = {
     "Tarjeta Naranja": "naranja-x",
     "Club La Nación": "club-la-nacion",
     "Tarjeta_Standard_Master_Carrefour": "tarjeta-carrefour",
+    "Cuenta Digital": "carrefour-cuenta-digital",
   },
   // The raw media are the words scrape.ts reads from the promotion's title and subtitle.
   media: {
