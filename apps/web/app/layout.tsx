@@ -1,7 +1,7 @@
 import { Archivo } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { selectedBranchIds } from "../lib/selection.ts";
+import { selectedBranchIds, selectedCart } from "../lib/selection.ts";
 import "./globals.css";
 
 // One family; its width axis does the work (condensed prices and headlines, normal body text).
@@ -13,7 +13,8 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const n = (await selectedBranchIds()).length;
+  const [n, cart] = await Promise.all([selectedBranchIds().then((ids) => ids.length), selectedCart()]);
+  const items = cart.reduce((sum, i) => sum + i.quantity, 0);
   return (
     <html lang="es-AR" className={archivo.variable}>
       <body>
@@ -27,6 +28,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </Link>
             <Link href="/medios" className="header-link">
               Medios de pago
+            </Link>
+            <Link href="/carrito" className="header-link">
+              {items ? `Carrito (${items})` : "Carrito"}
             </Link>
           </nav>
         </header>

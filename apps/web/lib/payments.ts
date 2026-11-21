@@ -46,6 +46,15 @@ export interface CatalogNames {
   conditions: Record<string, string>;
 }
 
+type Catalog = Record<keyof CatalogNames, { id: string; name: string }[]>;
+
+/** The catalog query's rows as id → name lookups. */
+export const toCatalogNames = (catalog: Catalog): CatalogNames => ({
+  entities: Object.fromEntries(catalog.entities.map((e) => [e.id, e.name])),
+  media: Object.fromEntries(catalog.media.map((m) => [m.id, m.name])),
+  conditions: Object.fromEntries(catalog.conditions.map((c) => [c.id, c.name])),
+});
+
 const lowerFirst = (text: string) => text.charAt(0).toLocaleLowerCase("es-AR") + text.slice(1);
 const PERIOD = { transaction: "por compra", day: "por día", week: "por semana", month: "por mes" } as const;
 
