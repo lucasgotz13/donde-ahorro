@@ -647,3 +647,37 @@ a {
   color: var(--muted);
   font-size: var(--step--1);
 }
+
+/* /estado */
+.status-row {
+  padding: 0.875rem 1rem;
+}
+
+.status-name {
+  margin: 0;
+  font-size: var(--step-1);
+  font-weight: 700;
+  font-variation-settings: "wdth" 75;
+}
+
+.status-main,
+.status-run {
+  margin: 0.25rem 0 0;
+}
+
+.status-run {
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.status-chain {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--step--1);
+}
+
+.promos-missing {
+  display: block;
+  width: fit-content;
+}

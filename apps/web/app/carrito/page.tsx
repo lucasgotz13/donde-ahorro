@@ -1,11 +1,11 @@
 import { bestSplit, totalsByChain, type CartLine } from "@donde-ahorro/core";
-import { getCartProducts, getChainNames, getPaymentCatalog, getPromotions } from "@donde-ahorro/db/queries";
+import { getCartProducts, getChainNames, getPaymentCatalog, getPromotions, promotionCoverage } from "@donde-ahorro/db/queries";
 import Link from "next/link";
 import { sql } from "../../lib/db.ts";
 import { priceText, sentenceCase, todayInArgentina } from "../../lib/format.ts";
 import { dayLabel, parseDay, toCatalogNames, weekOf } from "../../lib/payments.ts";
 import { selectedBranchIds, selectedCart, selectedConditions, selectedPaymentMethods } from "../../lib/selection.ts";
-import { Breakdown } from "../_components/breakdown.tsx";
+import { Breakdown, PromosNotReported } from "../_components/breakdown.tsx";
 import { Price } from "../_components/price.tsx";
 import { emptyCart, updateCart } from "./actions.ts";
 
@@ -39,7 +39,12 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   const quantityOf = new Map(cart.map((i) => [i.productId, i.quantity]));
   const lines: CartLine[] = products.map((p) => ({ productId: p.id, quantity: quantityOf.get(p.id)!, prices: p.prices }));
   const chainIds = [...new Set(lines.flatMap((l) => Object.keys(l.prices)))];
-  const [promotions, catalog, chainNames] = await Promise.all([getPromotions(sql, chainIds), getPaymentCatalog(sql), getChainNames(sql)]);
+  const [promotions, catalog, chainNames, coverage] = await Promise.all([
+    getPromotions(sql, chainIds),
+    getPaymentCatalog(sql),
+    getChainNames(sql),
+    promotionCoverage(sql),
+  ]);
   const names = toCatalogNames(catalog);
   const promoById = new Map(promotions.map((p) => [p.id, p]));
   const context = { day, channel: "in-store" as const, paymentMethods, conditions };
@@ -100,6 +105,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                   {t.missing.length
                     ? `No tiene ${t.missing.length === 1 ? "1 producto" : `${t.missing.length} productos`}: ${t.missing.map((id) => sentenceCase(describe(id).description)).join(", ")}.`
                     : "Tiene todo tu carrito."}
+                  {!coverage[t.chainId] && <PromosNotReported />}
                 </p>
               </div>
               <div className="chain-price">
