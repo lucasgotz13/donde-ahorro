@@ -2,8 +2,8 @@ import type { Aliases } from "../store.ts";
 
 /**
  * S18: Carrefour's MasterData bank (FB) and card (FC) names → catalog ids. Names with no canonical id
- * stay out so their promotions are skipped as "entidad desconocida" (e.g. Mi Carrefour,
- * card networks, regional banks).
+ * stay out so their promotions are skipped as "entidad desconocida" (e.g. card networks,
+ * regional banks).
  */
 export const CARREFOUR_ALIASES: Aliases = {
   entities: {
@@ -35,5 +35,10 @@ export const CARREFOUR_ALIASES: Aliases = {
     "débito": "debit",
     "dinero en cuenta": "account-money",
     "QR": "qr",
+  },
+  // Eligibility conditions: "Mi Carrefour" is listed as a bank, and the ANSES/60+ one is read from the title.
+  conditions: {
+    "Mi Carrefour": "mi-carrefour",
+    "Anses o mayor de 60": "anses-o-mayor-60",
   },
 };

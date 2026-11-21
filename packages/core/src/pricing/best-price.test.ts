@@ -161,6 +161,7 @@ describe("bestPrice applicability", () => {
     ["for an entity the user does not have", { entity: "nacion" }],
     ["for a payment medium the user does not have", { entity: "galicia", paymentMedium: "debit" }],
     ["for another channel", { channel: "online" }],
+    ["for an eligibility condition the user does not meet", { conditions: ["comunidad-coto"] }],
   ];
 
   it.each(cases)("ignores a promotion %s", (_, overrides) => {
@@ -176,5 +177,19 @@ describe("bestPrice applicability", () => {
       context,
     );
     expect(result.applied.map((a) => a.promotionId)).toEqual(["p"]);
+  });
+
+  it("applies a promotion only when the user meets every eligibility condition", () => {
+    const promotions = [promo({ id: "p", conditions: ["mi-carrefour", "anses-o-mayor-60"] })];
+    const owned = (conditions: string[]) => bestPrice(10_000, promotions, { ...context, conditions }).applied.map((a) => a.promotionId);
+    expect(owned(["mi-carrefour"])).toEqual([]);
+    expect(owned(["anses-o-mayor-60", "mi-carrefour", "visa-nfc"])).toEqual(["p"]);
+  });
+
+  it("combines a condition with the payment method that the promotion requires", () => {
+    const visa = promo({ id: "visa", paymentMedium: "debit", conditions: ["visa-nfc"] });
+    const result = bestPrice(10_000, [visa], { ...context, paymentMethods: [{ entity: "galicia", medium: "debit" }], conditions: ["visa-nfc"] });
+    expect(result.applied.map((a) => a.promotionId)).toEqual(["visa"]);
+    expect(bestPrice(10_000, [visa], { ...context, conditions: ["visa-nfc"] }).applied).toEqual([]);
   });
 });

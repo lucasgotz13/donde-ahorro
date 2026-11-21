@@ -24,8 +24,11 @@ describe("parseCotoPromotions", () => {
     expect(all.filter((p) => p.channel === "in-store")).toHaveLength(20);
     expect(all.some((p) => /CUOTAS/.test(p.legalText) && p.id === "coto:496")).toBe(false);
     expect(new Set(all.map((p) => p.id)).size).toBe(34);
-    // Coto always names the entity: none is "any entity".
-    expect(all.every((p) => p.rawEntity !== null)).toBe(true);
+    // Coto always names the entity, except where an eligibility condition (Visa NFC, Comunidad Coto) replaces it.
+    expect(all.filter((p) => p.rawEntity === null).map((p) => [p.id, p.rawConditions]).sort()).toEqual([
+      ["coto:467", ["logo_comunidad.png"]],
+      ["coto:527", ["logo_visa1.png"]],
+    ]);
   });
 
   it("maps an online bank refund with a per-transaction cap", () => {
@@ -141,7 +144,7 @@ describe.skipIf(!adminUrl)("runCoto", () => {
     warn.mockRestore();
 
     const rows = await sql`select id, chain_id, kind, percent, entity_id, payment_medium_id, weekdays, cap_amount, cap_period, cap_unknown, channel, valid_from::text, valid_to::text, stackable from promotions order by id`;
-    expect(rows).toHaveLength(29);
+    expect(rows).toHaveLength(31);
     expect(rows.find((r) => r.id === "coto:450")).toEqual({
       id: "coto:450",
       chain_id: "coto",
@@ -159,17 +162,22 @@ describe.skipIf(!adminUrl)("runCoto", () => {
       stackable: null,
     });
     expect(rows.find((r) => r.id === "coto:457")).toMatchObject({ entity_id: "icbc", payment_medium_id: null, cap_amount: 2_000_000, cap_period: "transaction" });
+    // Eligibility conditions (Visa NFC, Comunidad Coto) stand in for the entity.
+    const conditioned = await sql`select id, entity_id, payment_medium_id, conditions from promotions where cardinality(conditions) > 0 order by id`;
+    expect(conditioned).toEqual([
+      { id: "coto:467", entity_id: null, payment_medium_id: null, conditions: ["comunidad-coto"] },
+      { id: "coto:527", entity_id: null, payment_medium_id: "debit", conditions: ["visa-nfc"] },
+    ]);
     // An unmapped entity is skipped, never stored as "any entity".
-    expect(rows.some((r) => r.entity_id === null)).toBe(false);
+    expect(rows.some((r) => r.entity_id === null && !["coto:467", "coto:527"].includes(r.id))).toBe(false);
 
     const [run] = await sql`select source, status, stats from ingest_runs order by id desc limit 1`;
-    expect(run).toMatchObject({ source: "coto", status: "succeeded", stats: { saved: 29 } });
+    expect(run).toMatchObject({ source: "coto", status: "succeeded", stats: { saved: 31 } });
     expect(run!.stats.skipped).toEqual(
       expect.arrayContaining([
-        { id: "coto:527", reason: "entidad desconocida: logo_visa1.png" },
         { id: "coto:458", reason: "entidad desconocida: logo_jubiladosypensionados.png" },
       ]),
     );
-    expect(run!.stats.skipped).toHaveLength(5);
+    expect(run!.stats.skipped).toHaveLength(3);
   });
 });

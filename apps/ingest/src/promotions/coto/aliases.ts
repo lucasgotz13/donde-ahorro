@@ -2,8 +2,9 @@ import type { Aliases } from "../store.ts";
 
 /**
  * S18: Coto names entities by logo file. Left out on purpose (no catalog id, skipped as "entidad
- * desconocida"): logo_visa1.png, logo_amex1.png, and the non-payment programs logo_jubiladosypensionados.png,
- * logo_comunidad.png, logo_beneficios_anses.png and logo_ciudadania_portena.png.
+ * desconocida"): logo_amex1.png, and the non-payment programs logo_jubiladosypensionados.png,
+ * logo_beneficios_anses.png and logo_ciudadania_portena.png. Logos in `conditions` are eligibility
+ * conditions, not entities: their promotions apply to any entity.
  */
 export const COTO_ALIASES: Aliases = {
   entities: {
@@ -26,4 +27,8 @@ export const COTO_ALIASES: Aliases = {
   },
   // The medium names the description itself uses (see `mediumOf` in scrape.ts).
   media: { "crédito": "credit", "débito": "debit", prepaga: "prepaid", QR: "qr" },
+  conditions: {
+    "logo_visa1.png": "visa-nfc",
+    "logo_comunidad.png": "comunidad-coto",
+  },
 };

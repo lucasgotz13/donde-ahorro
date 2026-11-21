@@ -3,6 +3,7 @@ import { USER_AGENT } from "../../sepa/download.ts";
 import { parseCap } from "../cap.ts";
 import { assertAllowedByRobots } from "../robots.ts";
 import type { ScrapedPromotion } from "../store.ts";
+import { CARREFOUR_ALIASES } from "./aliases.ts";
 
 /** One `BP` MasterData document: what www.carrefour.com.ar/descuentos-bancarios renders. */
 interface BankPromotion {
@@ -72,14 +73,21 @@ export function parseCarrefourPromotions({ promotions, banks, cards }: Carrefour
     const entityId = p.idBank ?? p.idCard;
     // A promotion with no bank or card is any-entity only when it says so; otherwise its title is the
     // unknown entity, so it is skipped instead of stored as null (null means "any entity").
-    const rawEntity = entityId
-      ? (names.get(entityId) ?? entityId)
-      : /todos los medios de pago/i.test(p.title) ? null : p.title;
+    const named = entityId ? (names.get(entityId) ?? entityId) : undefined;
+    // A membership listed as a bank (Mi Carrefour) is an eligibility condition, open to any entity.
+    const isCondition = named !== undefined && named in CARREFOUR_ALIASES.conditions!;
+    const rawConditions = isCondition
+      ? [named, ...(/anses|mayor(?:es)? de 60/i.test(p.title) ? ["Anses o mayor de 60"] : [])]
+      : undefined;
+    const rawEntity = isCondition
+      ? null
+      : (named ?? (/todos los medios de pago/i.test(p.title) ? null : p.title));
     const base = {
       // The legal texts say "reintegro" even for discounts taken at checkout, so the page's own label decides.
       kind: /reintegr/i.test(`${p.title} ${p.discount_text_info ?? ""}`) ? "refund" : "discount",
       percent: p.discount_percentage,
       rawEntity,
+      ...(rawConditions && { rawConditions }),
       rawMedium: rawMedium(`${p.title} ${subTitle}`),
       weekdays: weekdays.length === 7 ? [] : weekdays,
       cap: cap(subTitle, legal),

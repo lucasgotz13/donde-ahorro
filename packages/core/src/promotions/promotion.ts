@@ -37,6 +37,8 @@ export interface Promotion {
   legalText: string;
   /** Explicit stacking; when absent, refunds stack and discounts do not. */
   stackable?: boolean;
+  /** Eligibility conditions the user must meet, all of them (e.g. `comunidad-coto`, `visa-nfc`); absent means none. */
+  conditions?: string[];
 }
 
 export const isStackable = (promotion: Promotion): boolean =>
@@ -53,3 +55,6 @@ export const requiresPaymentMethod = (promotion: Promotion): boolean =>
 export const acceptsPaymentMethod = (promotion: Promotion, method: PaymentMethod): boolean =>
   (promotion.entity === null || promotion.entity === method.entity) &&
   (promotion.paymentMedium === null || promotion.paymentMedium === method.medium);
+
+export const meetsConditions = (promotion: Promotion, owned: readonly string[] = []): boolean =>
+  (promotion.conditions ?? []).every((c) => owned.includes(c));

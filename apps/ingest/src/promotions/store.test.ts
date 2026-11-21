@@ -22,7 +22,11 @@ const promo = (fields: Partial<ScrapedPromotion> = {}): ScrapedPromotion => ({
   ...fields,
 });
 
-const aliases = { entities: { "BANCO GALICIA": "galicia" }, media: { "Crédito": "credit" } };
+const aliases = {
+  entities: { "BANCO GALICIA": "galicia" },
+  media: { "Crédito": "credit" },
+  conditions: { "logo_comunidad.png": "comunidad-coto" },
+};
 
 // S11, S12, S18, S22, S23.
 describe.skipIf(!adminUrl)("runPromotionSource", () => {
@@ -64,6 +68,16 @@ describe.skipIf(!adminUrl)("runPromotionSource", () => {
         { id: "test:2", reason: "medio de pago desconocido: Trueque" },
       ],
     });
+  });
+
+  it("maps eligibility conditions and skips an unknown one instead of dropping it", async () => {
+    await run(async () => [
+      promo({ id: "test:1", rawEntity: null, rawConditions: ["logo_comunidad.png"] }),
+      promo({ id: "test:2", rawConditions: ["logo_comunidad.png", "Socio Marciano"] }),
+    ]);
+    expect(await sql`select id, conditions from promotions order by id`).toEqual([{ id: "test:1", conditions: ["comunidad-coto"] }]);
+    expect((await lastRun())!.stats.skipped).toEqual([{ id: "test:2", reason: "condición desconocida: Socio Marciano" }]);
+    expect(await sql`select name from eligibility_conditions where id = 'comunidad-coto'`).toEqual([{ name: "Comunidad Coto" }]);
   });
 
   it("skips invalid weekdays and percents", async () => {

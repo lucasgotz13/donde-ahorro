@@ -7,18 +7,23 @@ export interface ScrapedPromotion extends Omit<Promotion, "entity" | "paymentMed
   /** `null` only when the source says any entity qualifies. */
   rawEntity: string | null;
   rawMedium: string | null;
+  /** The source's raw names for the eligibility conditions it requires; absent means none. */
+  rawConditions?: string[];
 }
 
 /** S18: raw name → canonical catalog id, per source. */
 export interface Aliases {
   entities: Record<string, string>;
   media: Record<string, string>;
+  conditions?: Record<string, string>;
 }
 
 function rejection(p: ScrapedPromotion, aliases: Aliases): string | undefined {
   // An unmapped entity is never stored as null: null means "any entity".
   if (p.rawEntity !== null && !(p.rawEntity in aliases.entities)) return `entidad desconocida: ${p.rawEntity}`;
   if (p.rawMedium !== null && !(p.rawMedium in aliases.media)) return `medio de pago desconocido: ${p.rawMedium}`;
+  const condition = p.rawConditions?.find((c) => !(c in (aliases.conditions ?? {})));
+  if (condition !== undefined) return `condición desconocida: ${condition}`;
   const day = p.weekdays.find((d) => !Number.isInteger(d) || d < 0 || d > 6);
   if (day !== undefined) return `día inválido: ${day}`;
   if (!(p.percent > 0 && p.percent <= 100)) return `porcentaje inválido: ${p.percent}`;
@@ -72,6 +77,7 @@ export async function runPromotionSource(
         valid_to: p.validTo,
         legal_text: p.legalText,
         stackable: p.stackable ?? null,
+        conditions: (p.rawConditions ?? []).map((c) => aliases.conditions![c]!),
       });
     }
     await sql.begin(async (tx) => {
