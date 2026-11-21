@@ -1,7 +1,9 @@
 import { Archivo } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { THEME_COLOR } from "../lib/pwa.ts";
 import { selectedBranchIds, selectedCart } from "../lib/selection.ts";
+import { RegisterServiceWorker } from "./_components/register-service-worker.tsx";
 import "./globals.css";
 
 // One family; its width axis does the work (condensed prices and headlines, normal body text).
@@ -10,7 +12,11 @@ const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-
 export const metadata = {
   title: "Dónde Ahorro",
   description: "Dónde está más barato cada producto en los supermercados de CABA.",
+  // S4: iOS reads these instead of the manifest when adding to the home screen.
+  appleWebApp: { capable: true, title: "Dónde Ahorro", statusBarStyle: "default" as const },
 };
+
+export const viewport = { themeColor: THEME_COLOR };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const [n, cart] = await Promise.all([selectedBranchIds().then((ids) => ids.length), selectedCart()]);
@@ -35,6 +41,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </nav>
         </header>
         {children}
+        <RegisterServiceWorker />
       </body>
     </html>
   );
