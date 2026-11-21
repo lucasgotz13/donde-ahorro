@@ -1,4 +1,4 @@
-// Runs one SEPA ingest now (the daily schedule arrives in T7).
+// Runs one SEPA ingest now, outside the daily schedule in main.ts.
 import { tmpdir } from "node:os";
 import { migrate } from "@donde-ahorro/db";
 import postgres from "postgres";
