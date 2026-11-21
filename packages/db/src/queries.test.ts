@@ -1,6 +1,17 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { getBranches, getPriceHistory, getProduct, lastSepaUpdate, nearestBranches, searchBranches, searchProducts, similarProducts } from "./queries.ts";
+import {
+  getBranches,
+  getPaymentCatalog,
+  getPriceHistory,
+  getProduct,
+  getPromotions,
+  lastSepaUpdate,
+  nearestBranches,
+  searchBranches,
+  searchProducts,
+  similarProducts,
+} from "./queries.ts";
 import { createTestDatabase } from "./test-database.ts";
 
 const adminUrl = process.env.DATABASE_URL;
@@ -162,6 +173,45 @@ describe.skipIf(!adminUrl)("product queries", () => {
     it("getBranches returns the given ids, ignoring unknown ones", async () => {
       expect(names(await getBranches(sql, ["9-3-1", "nope", "12-1-1"]))).toEqual(["Coto Caballito", "Jumbo Palermo"]);
       expect(await getBranches(sql, [])).toEqual([]);
+    });
+  });
+
+  // S12, S18: promotions as the core model, and the catalog the user picks from.
+  describe("promotions", () => {
+    beforeAll(async () => {
+      await sql`insert into entities (id, name) values ('galicia', 'Banco Galicia'), ('modo', 'MODO'), ('nacion', 'Banco Nación')`;
+      await sql`insert into payment_media (id, name) values ('credit', 'Tarjeta de crédito'), ('debit', 'Tarjeta de débito')`;
+      await sql`insert into eligibility_conditions (id, name) values ('comunidad-coto', 'Comunidad Coto')`;
+      await sql`insert into promotions (id, chain_id, kind, percent, entity_id, payment_medium_id, weekdays, cap_amount, cap_period, cap_unknown, channel, valid_from, valid_to, legal_text, stackable, conditions) values
+        ('coto:1', 'coto', 'refund', 25, 'galicia', 'credit', '{3}', 1000000, 'month', false, 'in-store', '2026-11-01', '2026-11-30', 'Tope $10.000 por mes', null, '{}'),
+        ('coto:2', 'coto', 'discount', 15, null, null, '{}', null, null, false, 'in-store', '2026-11-01', '2026-11-30', '', true, '{comunidad-coto}'),
+        ('dia:1', 'dia', 'discount', 10, 'modo', null, '{}', null, null, true, 'both', '2026-11-01', '2026-11-30', '', null, '{}')`;
+    });
+
+    it("getPromotions maps rows of the given chains to the core model", async () => {
+      const promos = await getPromotions(sql, ["coto"]);
+      expect(promos).toEqual([
+        {
+          id: "coto:1", chainId: "coto", kind: "refund", percent: 25, entity: "galicia", paymentMedium: "credit",
+          weekdays: [3], cap: { amount: 1000000, period: "month" }, channel: "in-store",
+          validFrom: "2026-11-01", validTo: "2026-11-30", legalText: "Tope $10.000 por mes", conditions: [],
+        },
+        {
+          id: "coto:2", chainId: "coto", kind: "discount", percent: 15, entity: null, paymentMedium: null,
+          weekdays: [], cap: null, channel: "in-store",
+          validFrom: "2026-11-01", validTo: "2026-11-30", legalText: "", stackable: true, conditions: ["comunidad-coto"],
+        },
+      ]);
+      expect((await getPromotions(sql, ["dia"]))[0]).toMatchObject({ cap: "unknown", channel: "both" });
+      expect(await getPromotions(sql, [])).toEqual([]);
+    });
+
+    it("getPaymentCatalog lists entities with promotions, every medium and every condition", async () => {
+      expect(await getPaymentCatalog(sql)).toEqual({
+        entities: [{ id: "galicia", name: "Banco Galicia" }, { id: "modo", name: "MODO" }],
+        media: [{ id: "credit", name: "Tarjeta de crédito" }, { id: "debit", name: "Tarjeta de débito" }],
+        conditions: [{ id: "comunidad-coto", name: "Comunidad Coto" }],
+      });
     });
   });
 });
