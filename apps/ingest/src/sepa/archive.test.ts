@@ -1,9 +1,7 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { extractEntry, listInnerArchives, readEntry } from "./archive.ts";
 import { readRecords } from "./parse.ts";
@@ -27,8 +25,7 @@ describe("SEPA archive", () => {
   });
 
   it("rejects an archive with two inner archives for one comercio", async () => {
-    const twice = join(dir, "twice.zip");
-    await promisify(execFile)("python3", ["-I", "-c", `import zipfile\nwith zipfile.ZipFile("${twice}", "w") as z:\n  z.writestr("d/sepa_1_comercio-sepa-12_a.zip", b"")\n  z.writestr("d/sepa_2_comercio-sepa-12_b.zip", b"")`]);
+    const twice = fileURLToPath(new URL("./fixtures/duplicate-comercio.zip", import.meta.url));
     await expect(listInnerArchives(twice)).rejects.toThrow(/two archives for comercio 12/);
   });
 

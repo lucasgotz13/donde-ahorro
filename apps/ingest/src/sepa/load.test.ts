@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createTestDatabase } from "@donde-ahorro/db";
+import { createTestDatabase } from "@donde-ahorro/db/test-database";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { extractEntry, listInnerArchives } from "./archive.ts";
@@ -26,7 +26,7 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
     await upsertChains(sql);
   });
   afterAll(async () => {
-    await db.drop();
+    await db?.drop();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -52,13 +52,13 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
 
   // S8: only price changes are stored.
   it("opens a period for a price seen for the first time", async () => {
-    await load("2026-11-01", row("A", 100));
+    expect(await load("2026-11-01", row("A", 100))).toMatchObject({ new: 1, changed: 0, inPlace: 0, unchanged: 0 });
     expect(await periods("A")).toEqual([{ price: 100, from: "2026-11-01", to: null, seen: "2026-11-01" }]);
   });
 
   it("only moves last_seen forward while the price holds", async () => {
     await load("2026-11-01", row("B", 100));
-    await load("2026-11-02", row("B", 100));
+    expect(await load("2026-11-02", row("B", 100))).toMatchObject({ new: 0, unchanged: 1 });
     expect(await periods("B")).toEqual([{ price: 100, from: "2026-11-01", to: null, seen: "2026-11-02" }]);
   });
 
@@ -74,8 +74,31 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
 
   it("corrects the price in place when the same day is loaded again", async () => {
     await load("2026-11-01", row("D", 100));
-    await load("2026-11-01", row("D", 110));
+    expect(await load("2026-11-01", row("D", 110))).toMatchObject({ inPlace: 1, changed: 0 });
     expect(await periods("D")).toEqual([{ price: 110, from: "2026-11-01", to: null, seen: "2026-11-01" }]);
+  });
+
+  // A republished ZIP on the same day (new last-modified) carries corrected prices.
+  it("applies a same-day correction to a period opened on an earlier day", async () => {
+    await load("2026-11-05", row("R", 100));
+    await load("2026-11-06", row("R", 100));
+    await load("2026-11-06", row("R", 130));
+    expect(await periods("R")).toEqual([
+      { price: 100, from: "2026-11-05", to: "2026-11-06", seen: "2026-11-06" },
+      { price: 130, from: "2026-11-06", to: null, seen: "2026-11-06" },
+    ]);
+  });
+
+  it("never lets an older day rewrite a newer price", async () => {
+    await load("2026-11-05", row("O", 100));
+    await load("2026-11-07", row("O", 100));
+    await load("2026-11-05", row("O", 90));
+    expect(await periods("O")).toEqual([{ price: 100, from: "2026-11-05", to: null, seen: "2026-11-07" }]);
+  });
+
+  it("keeps the lowest price when a file lists a product twice for one branch", async () => {
+    await load("2026-11-01", row("T", 200), row("T", 100));
+    expect(await periods("T")).toEqual([{ price: 100, from: "2026-11-01", to: null, seen: "2026-11-01" }]);
   });
 
   it("ignores an older publication, so periods never overlap", async () => {

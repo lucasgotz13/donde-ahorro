@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r typecheck",
     "dev:web": "pnpm --filter @donde-ahorro/web dev",
     "ingest": "pnpm --filter @donde-ahorro/ingest start",
+    "ingest:sepa": "pnpm --filter @donde-ahorro/ingest sepa",
     "db:generate": "pnpm --filter @donde-ahorro/db generate",
     "db:migrate": "pnpm --filter @donde-ahorro/db migrate"
   },

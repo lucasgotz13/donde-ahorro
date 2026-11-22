@@ -24,14 +24,15 @@ export async function* readRecords(input: Readable, stats = { malformed: 0 }): A
       continue;
     }
     if (fields.length > header.length) {
-      // The pending fragment was a broken row, not the first half of this one.
-      stats.malformed++;
-      fields = line.split("|");
-      if (fields.length !== header.length) {
-        pending = fields.length < header.length ? line : "";
-        if (!pending) stats.malformed++;
-        continue;
+      if (pending) {
+        // The pending fragment was a broken row, not the first half of this one.
+        stats.malformed++;
+        fields = line.split("|");
       }
+      pending = "";
+      if (fields.length < header.length) pending = line;
+      if (fields.length > header.length) stats.malformed++;
+      if (fields.length !== header.length) continue;
     }
     pending = "";
     yield Object.fromEntries(header.map((name, i) => [name, fields[i]!]));
@@ -39,9 +40,9 @@ export async function* readRecords(input: Readable, stats = { malformed: 0 }): A
   if (pending) stats.malformed++;
 }
 
-/** SEPA prices are pesos with a dot decimal (`22617`, `3178.99`, `.4`); returns positive cents or `null`. */
+/** SEPA prices are pesos with a dot decimal (`22617`, `3178.99`, `.4`, `12.`); returns positive cents or `null`. */
 export function toCents(value: string): number | null {
-  if (!/^\d*\.?\d+$/.test(value)) return null;
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(value)) return null;
   const cents = Math.round(Number(value) * 100);
   return cents > 0 ? cents : null;
 }

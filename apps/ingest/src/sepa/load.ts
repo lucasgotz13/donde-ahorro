@@ -25,8 +25,9 @@ const copyValue = (value: string | number | null) =>
 
 /**
  * S8: loads one chain's prices for `day`, storing only changes. A pair (product, branch) keeps one
- * open period; a new price closes it at `day` and opens another. An older `day` than the one
- * already seen changes nothing, so periods never overlap. Products missing from the file keep
+ * open period; a new price closes it at `day` and opens another (also when the same day is
+ * republished with a correction). An older `day` than the one already seen changes nothing, so
+ * periods never overlap. A product listed twice for one branch keeps its lowest price. Products missing from the file keep
  * their last known price (S9).
  */
 export async function loadChain(
@@ -60,11 +61,11 @@ export async function loadChain(
 
     // S10: one product per EAN across chains; codes that are not EANs belong to their chain.
     await tx`insert into products (ean, description, brand, presentation)
-      select distinct on (code) code, description, brand, presentation from staging where is_ean order by code
+      select distinct on (code) code, description, brand, presentation from staging where is_ean order by code, description
       on conflict (ean) do nothing`;
     await tx`insert into products (chain_id, chain_product_code, description, brand, presentation)
       select distinct on (chain_id, code) chain_id, code, description, brand, presentation from staging where not is_ean
-      order by chain_id, code
+      order by chain_id, code, description
       on conflict (chain_id, chain_product_code) do nothing`;
     await tx`create temp table today on commit drop as
       select distinct on (product_id, branch_id) product_id, branch_id, price from (
@@ -72,18 +73,18 @@ export async function loadChain(
         union all
         select p.id, s.branch_id, s.price from staging s
           join products p on p.chain_id = s.chain_id and p.chain_product_code = s.code where not s.is_ean
-      ) resolved order by product_id, branch_id`;
+      ) resolved order by product_id, branch_id, price`;
     await tx`analyze today`;
 
     const open = tx`pp.product_id = t.product_id and pp.branch_id = t.branch_id and pp.valid_to is null`;
-    // The same day loaded again: correct the price it opened.
+    // The same day loaded again (a republished ZIP): correct the price that day opened.
     stats.inPlace = (await tx`update price_periods pp set price = t.price from today t
-      where ${open} and pp.valid_from = ${day} and pp.price <> t.price`).count;
-    // A newer day with another price: close the open period and open a new one.
+      where ${open} and pp.valid_from = ${day} and pp.last_seen = ${day} and pp.price <> t.price`).count;
+    // Another price on this day or a newer one: close the open period at `day` and open a new one.
     await tx`create temp table closed on commit drop as
       with c as (
         update price_periods pp set valid_to = ${day} from today t
-        where ${open} and pp.last_seen < ${day} and pp.price <> t.price
+        where ${open} and pp.valid_from < ${day} and pp.last_seen <= ${day} and pp.price <> t.price
         returning pp.product_id, pp.branch_id, t.price
       ) select * from c`;
     stats.changed = (await tx`insert into price_periods (product_id, branch_id, price, valid_from, last_seen)

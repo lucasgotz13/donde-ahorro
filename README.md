@@ -28,6 +28,7 @@ pnpm test        # Vitest; db tests need Postgres running, or no DATABASE_URL to
 pnpm typecheck
 pnpm dev:web     # http://localhost:3000
 pnpm ingest
+pnpm ingest:sepa  # download and load today's SEPA prices once (~3 min, ~340 MB download)
 pnpm db:generate # after editing packages/db/src/schema.ts
 ```
 

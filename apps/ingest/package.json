@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=../../.env src/main.ts",
+    "sepa": "node --env-file-if-exists=../../.env src/sepa-cli.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

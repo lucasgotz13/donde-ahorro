@@ -45,6 +45,13 @@ describe("readRecords", () => {
     expect(stats.malformed).toBe(2);
   });
 
+  it("counts a row with too many fields once", async () => {
+    const stats = { malformed: 0 };
+    const input = Readable.from([`${header}\n12|1|44|1|1|A|1|kg|X|100|100|1|kg|||||extra\n`]);
+    for await (const _ of readRecords(input, stats));
+    expect(stats.malformed).toBe(1);
+  });
+
   it("keeps double quotes as literal text", async () => {
     const input = Readable.from([`${header}\r\n12|1|44|1|0|PICADA "LA TRADICIONAL"  X KG|1|kgm|.|100|100|1|kgm||||\r\n`]);
     const [record] = await collect(input);
@@ -58,6 +65,7 @@ describe("toCents", () => {
     ["3178.99", 317899],
     [".4", 40],
     ["8922.5", 892250],
+    ["12.", 1200],
   ])("converts %s to %i cents", (value, cents) => expect(toCents(value)).toBe(cents));
 
   it.each(["", "-190.00", "0", "abc"])("rejects %j", (value) => expect(toCents(value)).toBeNull());

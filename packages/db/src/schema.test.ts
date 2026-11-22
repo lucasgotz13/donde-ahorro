@@ -19,7 +19,7 @@ describe.skipIf(!adminUrl)("database schema", () => {
     await sql`insert into products (ean, description) values ('7790000000001', 'Yerba 1 kg')`;
   });
 
-  afterAll(() => db.drop());
+  afterAll(() => db?.drop());
 
   const productId = async () => (await sql`select id from products where ean = '7790000000001'`)[0]!.id;
 
