@@ -7,13 +7,13 @@ export const CONDITIONS_COOKIE = "condiciones";
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Cookies and forms are user input: keep well-formed `entity:medium` pairs once, at most 60. */
+/** Cookies and forms are user input: keep well-formed `entity:medium` pairs once, at most 100 (about 3 KB, under the 4 KB cookie limit). */
 export function parsePaymentMethods(value: string | undefined): PaymentMethod[] {
   const pairs = new Set((value ?? "").split(",").map((s) => s.trim()));
   return [...pairs]
     .map((pair) => pair.split(":"))
     .filter((parts): parts is [string, string] => parts.length === 2 && parts.every((p) => ID.test(p)))
-    .slice(0, 60)
+    .slice(0, 100)
     .map(([entity, medium]) => ({ entity, medium }));
 }
 

@@ -32,7 +32,12 @@ const [yerba] = await sql`insert into products (ean, description, brand, present
   values ('7790001000001', 'YERBA MATE PLAYADITO PAQ 1 KGM', 'PLAYADITO', '1 kgm') returning id`;
 const [leche] = await sql`insert into products (ean, description, brand, presentation)
   values ('7790001000002', 'LECHE ENTERA LA SERENISIMA SACHET 1 LT', 'LA SERENISIMA', '1 lt') returning id`;
+const [galletitas] = await sql`insert into products (ean, description, brand, presentation)
+  values ('7790001000003', 'GALLETITAS OREO PAQ 118 GRM', 'OREO', '118 grm') returning id`;
 const prices: [number, string, number][] = [
+  [galletitas!.id, "12-1-1", 98000],
+  [galletitas!.id, "15-1-1", 100000],
+  [galletitas!.id, "9-3-1", 95000],
   [yerba!.id, "12-1-1", 500000],
   [yerba!.id, "12-1-2", 520000],
   [yerba!.id, "15-1-1", 480000],
@@ -45,6 +50,11 @@ for (const [productId, branchId, price] of prices) {
   await sql`insert into price_periods (product_id, branch_id, price, valid_from, last_seen)
     values (${productId}, ${branchId}, ${price}, ${day(-10)}, ${day(-1)})`;
 }
+
+// S25: Jumbo $850 today only; Día "2DO AL 50%" ($750 each for 2).
+await sql`insert into product_promos (product_id, branch_id, slot, price, min_quantity, valid_from, valid_until, published) values
+  (${galletitas!.id}, '9-3-1', 1, 85000, 1, ${day(-1)}, ${day(0)}, ${day(-1)}),
+  (${galletitas!.id}, '15-1-1', 2, 75000, 2, ${day(-1)}, ${day(10)}, ${day(-1)})`;
 
 await sql`insert into entities (id, name) values ('galicia', 'Banco Galicia')`;
 await sql`insert into payment_media (id, name) values ('credit', 'Tarjeta de crédito'), ('debit', 'Tarjeta de débito')`;

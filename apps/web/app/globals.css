@@ -266,6 +266,11 @@ a {
   font-size: var(--step--1);
 }
 
+.multi-buy {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* The one loud element: the cheapest chain wears the yellow sale tag. */
 .chain-cheapest .chain-price .price {
   background: var(--tag);
@@ -413,6 +418,10 @@ a {
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+.select-all {
+  margin-bottom: 0.5rem;
 }
 
 .link-button:disabled {

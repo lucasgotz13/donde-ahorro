@@ -37,7 +37,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
   }
 
   const quantityOf = new Map(cart.map((i) => [i.productId, i.quantity]));
-  const lines: CartLine[] = products.map((p) => ({ productId: p.id, quantity: quantityOf.get(p.id)!, prices: p.prices }));
+  const lines: CartLine[] = products.map((p) => ({ productId: p.id, quantity: quantityOf.get(p.id)!, prices: p.prices, offers: p.offers }));
   const chainIds = [...new Set(lines.flatMap((l) => Object.keys(l.prices)))];
   const [promotions, catalog, chainNames, coverage] = await Promise.all([
     getPromotions(sql, chainIds),
@@ -110,7 +110,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
               </div>
               <div className="chain-price">
                 <Price cents={t.best.effective} size="lg" />
-                {t.best.applied.length > 0 && <span className="chain-range">sin promo {priceText(t.subtotal)}</span>}
+                {t.best.effective < t.subtotal && <span className="chain-range">sin promo {priceText(t.subtotal)}</span>}
               </div>
               <Breakdown best={t.best} promoById={promoById} names={names} />
             </li>
@@ -143,7 +143,7 @@ export default async function CartPage({ searchParams }: { searchParams: Promise
                 </div>
                 <div className="chain-price">
                   <Price cents={b.best.effective} size="lg" />
-                  {b.best.applied.length > 0 && <span className="chain-range">sin promo {priceText(b.subtotal)}</span>}
+                  {b.best.effective < b.subtotal && <span className="chain-range">sin promo {priceText(b.subtotal)}</span>}
                 </div>
                 <Breakdown best={b.best} promoById={promoById} names={names} />
               </li>

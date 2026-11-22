@@ -9,6 +9,11 @@ describe("parsePaymentMethods", () => {
       { entity: "mercado-pago", medium: "account-money" },
     ]));
   it("is empty without a value", () => expect(parsePaymentMethods(undefined)).toEqual([]));
+  // "agregar todos los medios de pago con un click": today's catalog is 16 entities × 5 media.
+  it("keeps up to 100 pairs, enough for every method of the catalog", () => {
+    const pairs = Array.from({ length: 101 }, (_, i) => `bank-${i}:credit`).join(",");
+    expect(parsePaymentMethods(pairs)).toHaveLength(100);
+  });
 });
 
 describe("parseConditions", () => {

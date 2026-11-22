@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Fixture prices (e2e/seed.ts). Yerba: Coto $5.000 (Caballito) / $5.200 (Palermo), Día $4.800, Jumbo $5.500.
 // Milk: Coto $1.500, Día $1.600, Jumbo $1.400. Coto: 25% refund with Galicia credit; Día: 50% off tomorrow only.
+// Oreo: Coto $980, Día $1.000 with "2DO AL 50%" ($750 each for 2), Jumbo $950 with a $850 product promo today only.
 
 const chains = (page: Page) => page.locator(".chains > li");
 
@@ -56,6 +57,22 @@ test("the user's payment methods bring in their promotions", async ({ page }) =>
   await expect(coto).toContainText("25% de reintegro con Banco Galicia, tarjeta de crédito. Tope $10.000 por compra.");
 });
 
+// "un boton que seleccione todos los medios de pago, y luego el usuario dé click en guardar".
+test("a button checks every payment method and saving keeps them", async ({ page }) => {
+  await page.goto("/medios");
+  const galicia = page.getByRole("group", { name: "Banco Galicia" });
+  await page.getByRole("button", { name: "Seleccionar todos los medios de pago" }).click();
+  await expect(galicia.getByLabel("Tarjeta de crédito")).toBeChecked();
+  await expect(galicia.getByLabel("Tarjeta de débito")).toBeChecked();
+  await expect(page.getByLabel("Comunidad Coto")).not.toBeChecked();
+  await expect(page.getByRole("status")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Guardar medios de pago" }).click();
+  await expect(page.getByRole("status")).toHaveText("Guardamos tus medios de pago.");
+  await expect(galicia.getByLabel("Tarjeta de crédito")).toBeChecked();
+  await expect(galicia.getByLabel("Tarjeta de débito")).toBeChecked();
+});
+
 // S3, S20.
 test("choosing a branch limits prices to it", async ({ page }) => {
   await page.goto("/sucursales");
@@ -101,6 +118,37 @@ test("the cart totals each chain and finds the best split", async ({ page }) => 
 
   await page.getByRole("button", { name: "Vaciar carrito" }).click();
   await expect(page.getByRole("heading", { name: "Tu carrito está vacío" })).toBeVisible();
+});
+
+// S25, S19: product promotions from SEPA; a multi-buy only for complete groups.
+test("product promotions apply on their days and multi-buys only by the group", async ({ page }) => {
+  await page.goto("/?q=oreo");
+  await page.getByRole("link", { name: /Galletitas oreo/ }).click();
+  const jumbo = chains(page).first();
+  await expect(jumbo).toContainText("Jumbo");
+  await expect(jumbo.getByRole("img", { name: "$850,00" }).first()).toBeVisible();
+  await expect(jumbo).toContainText("sin promo $950,00");
+  const dia = chains(page).filter({ hasText: "Día" });
+  await expect(dia.getByRole("img", { name: "$1.000,00" }).first()).toBeVisible();
+  await expect(dia).toContainText("Llevando 2: $750,00 c/u");
+
+  await page.getByRole("link", { name: "Mañana" }).click();
+  await expect(page.getByRole("link", { name: "Mañana" })).toHaveAttribute("aria-current", "date");
+  await expect(chains(page).filter({ hasText: "Jumbo" })).not.toContainText("sin promo");
+
+  await page.getByRole("link", { name: "Hoy" }).click();
+  await page.getByRole("button", { name: "Agregar al carrito" }).click();
+  await expect(page.getByRole("status")).toContainText("Agregado.");
+  await page.goto("/carrito");
+  const single = page.getByRole("region", { name: "Todo en una cadena" }).locator(".chains > li");
+  await expect(single.first()).toContainText("Jumbo");
+  await expect(single.first().getByRole("img", { name: "$850,00" })).toBeVisible();
+
+  await page.getByLabel(/Cantidad de Galletitas oreo/).fill("2");
+  await page.getByRole("button", { name: "Actualizar cantidades" }).click();
+  await expect(single.first()).toContainText("Día");
+  await expect(single.first().getByRole("img", { name: "$1.500,00" })).toBeVisible();
+  await expect(single.first()).toContainText("sin promo $2.000,00");
 });
 
 // S11, S23.
