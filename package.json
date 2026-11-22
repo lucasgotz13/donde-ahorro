@@ -1,0 +1,21 @@
+{
+  "name": "donde-ahorro",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "dev:web": "pnpm --filter @donde-ahorro/web dev",
+    "ingest": "pnpm --filter @donde-ahorro/ingest start"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
