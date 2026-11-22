@@ -98,7 +98,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <p className="scope">
         {filter ? (
           <>
-            En tus {mine.length === 1 ? "sucursal" : `${mine.length} sucursales`}. <Link href={href({ todas: true })}>Ver todas las de CABA</Link>
+            {mine.length === 1 ? "En tu sucursal" : `En tus ${mine.length} sucursales`}. <Link href={href({ todas: true })}>Ver todas las de CABA</Link>
           </>
         ) : mine.length ? (
           <>

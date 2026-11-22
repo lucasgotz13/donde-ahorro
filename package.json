@@ -14,7 +14,8 @@
     "ingest": "pnpm --filter @donde-ahorro/ingest start",
     "ingest:sepa": "pnpm --filter @donde-ahorro/ingest sepa",
     "db:generate": "pnpm --filter @donde-ahorro/db generate",
-    "db:migrate": "pnpm --filter @donde-ahorro/db migrate"
+    "db:migrate": "pnpm --filter @donde-ahorro/db migrate",
+    "test:e2e": "pnpm --filter @donde-ahorro/web e2e"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
