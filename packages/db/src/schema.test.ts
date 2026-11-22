@@ -1,31 +1,25 @@
 import { randomUUID } from "node:crypto";
-import postgres from "postgres";
+import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { migrate } from "./migrate.ts";
+import { createTestDatabase } from "./test-database.ts";
 
 const adminUrl = process.env.DATABASE_URL;
 
 // Integration test: needs Postgres (`docker compose up -d db`). Each run migrates a throwaway database.
 describe.skipIf(!adminUrl)("database schema", () => {
-  const name = `test_${randomUUID().replaceAll("-", "")}`;
-  const admin = postgres(adminUrl ?? "", { max: 1 });
-  const url = new URL(adminUrl ?? "postgres://localhost");
-  url.pathname = `/${name}`;
-  const sql = postgres(url.toString(), { max: 1, onnotice: () => {} });
+  let db: Awaited<ReturnType<typeof createTestDatabase>>;
+  let sql: postgres.Sql;
 
   beforeAll(async () => {
-    await admin.unsafe(`create database ${name}`);
-    await migrate(url.toString());
+    db = await createTestDatabase(adminUrl!);
+    sql = db.sql;
     await sql`insert into chains (id, name, sepa_comercio_id, sepa_bandera_id) values ('coto', 'Coto', 10, 1)`;
     await sql`insert into branches (id, chain_id, name, address, lat, lng) values ('10-1-200', 'coto', 'Coto 200', 'Av. Siempre Viva 742', -34.6, -58.4)`;
     await sql`insert into products (ean, description) values ('7790000000001', 'Yerba 1 kg')`;
   });
 
-  afterAll(async () => {
-    await sql.end();
-    await admin.unsafe(`drop database if exists ${name} with (force)`);
-    await admin.end();
-  });
+  afterAll(() => db.drop());
 
   const productId = async () => (await sql`select id from products where ean = '7790000000001'`)[0]!.id;
 
@@ -105,7 +99,7 @@ describe.skipIf(!adminUrl)("database schema", () => {
   it("migrates again without changes", async () => {
     const count = async () => (await sql`select count(*)::int as count from drizzle.__drizzle_migrations`)[0]!.count;
     const before = await count();
-    await migrate(url.toString());
+    await migrate(db.url);
     expect(await count()).toBe(before);
   });
 
