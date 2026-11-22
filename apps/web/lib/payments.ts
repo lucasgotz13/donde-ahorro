@@ -7,13 +7,16 @@ export const CONDITIONS_COOKIE = "condiciones";
 
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Cookies and forms are user input: keep well-formed `entity:medium` pairs once, at most 100 (about 3 KB, under the 4 KB cookie limit). */
+/** About 3 KB of `entity:medium` pairs, under the 4 KB cookie limit. */
+export const MAX_PAYMENT_METHODS = 100;
+
+/** Cookies and forms are user input: keep well-formed `entity:medium` pairs once, at most `MAX_PAYMENT_METHODS`. */
 export function parsePaymentMethods(value: string | undefined): PaymentMethod[] {
   const pairs = new Set((value ?? "").split(",").map((s) => s.trim()));
   return [...pairs]
     .map((pair) => pair.split(":"))
     .filter((parts): parts is [string, string] => parts.length === 2 && parts.every((p) => ID.test(p)))
-    .slice(0, 100)
+    .slice(0, MAX_PAYMENT_METHODS)
     .map(([entity, medium]) => ({ entity, medium }));
 }
 

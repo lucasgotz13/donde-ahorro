@@ -14,6 +14,16 @@ await admin.unsafe(`create database ${name}`);
 await admin.end();
 await migrate(url);
 
+// The app reads today at request time: seeding right before midnight would date every fixture a day off.
+const minutesToMidnight = (() => {
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .format(new Date())
+    .split(":")
+    .map(Number);
+  return 24 * 60 - (h! * 60 + m!);
+})();
+if (minutesToMidnight <= 5) throw new Error(`[e2e] ${minutesToMidnight} min to midnight in Buenos Aires: run the E2E tests after midnight`);
+
 const day = (offset: number) => {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
   return new Date(Date.parse(today) + offset * 86_400_000).toISOString().slice(0, 10);
