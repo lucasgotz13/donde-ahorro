@@ -6,6 +6,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
+COPY packages/db/package.json packages/db/
 COPY apps/web/package.json apps/web/
 COPY apps/ingest/package.json apps/ingest/
 RUN pnpm install --frozen-lockfile

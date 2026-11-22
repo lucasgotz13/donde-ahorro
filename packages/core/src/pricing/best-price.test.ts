@@ -125,6 +125,9 @@ describe("bestPrice", () => {
     );
     expect(result.refund).toBe(10_000);
     expect(result.effective).toBe(0);
+    // The breakdown adds up to the refund actually paid back.
+    expect(result.applied.reduce((sum, a) => sum + a.savings, 0)).toBe(10_000);
+    expect(result.applied.some((a) => a.capped)).toBe(true);
   });
 
   it("computes an unknown cap uncapped and flags it", () => {

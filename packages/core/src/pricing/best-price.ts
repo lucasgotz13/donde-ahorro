@@ -71,17 +71,24 @@ function* validCombinations(promotions: Promotion[]): Generator<Promotion[]> {
   const stacking = promotions.filter(isStackable);
   for (const p of promotions) if (!isStackable(p)) yield [p];
   // shortcut: 2^n subsets, fine for the handful of promos a chain runs per day; prune if n grows past ~15.
-  for (let mask = 1; mask < 1 << stacking.length; mask++) {
-    yield stacking.filter((_, i) => mask & (1 << i));
+  yield* subsets(stacking, 0, []);
+}
+
+function* subsets(items: Promotion[], start: number, chosen: Promotion[]): Generator<Promotion[]> {
+  for (let i = start; i < items.length; i++) {
+    const next = [...chosen, items[i]!];
+    yield next;
+    yield* subsets(items, i + 1, next);
   }
 }
 
 function evaluate(amount: Cents, combination: Promotion[], method?: PaymentMethod): PriceBreakdown {
   const applied: AppliedPromotion[] = [];
-  const save = (promotion: Promotion, base: Cents): Cents => {
+  const save = (promotion: Promotion, base: Cents, ceiling: Cents): Cents => {
     const uncapped = Math.round((base * promotion.percent) / 100);
+    // shortcut: day/week/month caps are treated as fully available to this one transaction; track past spending to upgrade.
     const limit = typeof promotion.cap === "object" && promotion.cap !== null ? promotion.cap.amount : Infinity;
-    const savings = Math.min(uncapped, limit);
+    const savings = Math.min(uncapped, limit, ceiling);
     applied.push({ promotionId: promotion.id, kind: promotion.kind, savings, capped: savings < uncapped });
     return savings;
   };
@@ -89,10 +96,10 @@ function evaluate(amount: Cents, combination: Promotion[], method?: PaymentMetho
   // Discounts apply one after another (largest first); refunds are computed on what was paid.
   let paidAtCheckout = amount;
   const discounts = combination.filter((p) => p.kind === "discount").sort((a, b) => b.percent - a.percent);
-  for (const discount of discounts) paidAtCheckout -= save(discount, paidAtCheckout);
+  for (const discount of discounts) paidAtCheckout -= save(discount, paidAtCheckout, paidAtCheckout);
+  // Refunds never add up to more than what was paid.
   let refund = 0;
-  for (const p of combination) if (p.kind === "refund") refund += save(p, paidAtCheckout);
-  refund = Math.min(refund, paidAtCheckout);
+  for (const p of combination) if (p.kind === "refund") refund += save(p, paidAtCheckout, paidAtCheckout - refund);
 
   const breakdown: PriceBreakdown = {
     paidAtCheckout,
