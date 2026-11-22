@@ -3,13 +3,15 @@ import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, similarP
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "../../../lib/db.ts";
-import { dayLabel, describePromotion, parseDay, weekOf, type CatalogNames } from "../../../lib/payments.ts";
+import { dayLabel, parseDay, toCatalogNames, weekOf } from "../../../lib/payments.ts";
+import { addProductToCart } from "../../carrito/actions.ts";
 import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from "../../../lib/selection.ts";
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
+import { Breakdown } from "../../_components/breakdown.tsx";
 import { Price } from "../../_components/price.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string; dia?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string; dia?: string; agregado?: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
@@ -44,11 +46,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
     getPromotions(sql, product.chains.map((c) => c.chainId)),
     getPaymentCatalog(sql),
   ]);
-  const names: CatalogNames = {
-    entities: Object.fromEntries(catalog.entities.map((e) => [e.id, e.name])),
-    media: Object.fromEntries(catalog.media.map((m) => [m.id, m.name])),
-    conditions: Object.fromEntries(catalog.conditions.map((c) => [c.id, c.name])),
-  };
+  const names = toCatalogNames(catalog);
   const promoById = new Map(promotions.map((p) => [p.id, p]));
 
   // S13–S16, S19: each chain's best effective price on the chosen day with the user's methods.
@@ -75,6 +73,26 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <p className="product-meta">
         {[product.brand && titleCase(product.brand), product.presentation, product.ean && `código ${product.ean}`].filter(Boolean).join(", ")}
       </p>
+
+      <form action={addProductToCart} className="add-to-cart">
+        <input type="hidden" name="productId" value={product.id} />
+        <label htmlFor="quantity" className="visually-hidden">
+          Cantidad
+        </label>
+        <select id="quantity" name="quantity" defaultValue="1">
+          {Array.from({ length: 10 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Agregar al carrito</button>
+        {search.agregado && (
+          <span role="status">
+            Agregado. <Link href="/carrito">Ver carrito</Link>
+          </span>
+        )}
+      </form>
 
       <p className="scope">
         {filter ? (
@@ -145,23 +163,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     chain.maxPrice !== chain.minPrice && <span className="chain-range">hasta {priceText(chain.maxPrice)}</span>
                   )}
                 </div>
-                {best.applied.length > 0 && (
-                  <div className="chain-promos">
-                    {best.refund > 0 && (
-                      <p className="refund">
-                        Pagás {priceText(best.paidAtCheckout)}, te reintegran {priceText(best.refund)}.
-                      </p>
-                    )}
-                    <ul>
-                      {best.applied.map((a) => (
-                        <li key={a.promotionId}>
-                          {describePromotion(promoById.get(a.promotionId)!, names)}
-                          {a.capped && " Llegás al tope."}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <Breakdown best={best} promoById={promoById} names={names} />
                 {changed && (
                   <Sparkline steps={steps} domain={domain} label={`Precio más bajo de ${chain.chainName} desde el ${shortDate(domain.start)}`} />
                 )}
