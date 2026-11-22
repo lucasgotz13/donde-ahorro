@@ -420,6 +420,10 @@ a {
   cursor: pointer;
 }
 
+.add-all {
+  margin-top: 1rem;
+}
+
 .link-button:disabled {
   color: var(--muted);
   cursor: progress;

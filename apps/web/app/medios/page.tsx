@@ -1,7 +1,7 @@
 import { getPaymentCatalog } from "@donde-ahorro/db/queries";
 import { sql } from "../../lib/db.ts";
 import { selectedConditions, selectedPaymentMethods } from "../../lib/selection.ts";
-import { savePaymentMethods } from "./actions.ts";
+import { saveAllPaymentMethods, savePaymentMethods } from "./actions.ts";
 
 export const metadata = { title: "Tus medios de pago | Dónde Ahorro" };
 
@@ -32,6 +32,13 @@ export default async function PaymentMethodsPage({ searchParams }: { searchParam
           {guardados === "0" ? "Borramos tus medios de pago: solo se aplican las promos para todos." : "Guardamos tus medios de pago."}
         </p>
       )}
+
+      {/* Its own form, so the save button stays the main form's default (Enter). */}
+      <form action={saveAllPaymentMethods} className="add-all">
+        <button type="submit" className="link-button">
+          Agregar todos los medios de pago
+        </button>
+      </form>
 
       <form action={savePaymentMethods} className="branch-form">
         {catalog.conditions.length > 0 && (
