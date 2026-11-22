@@ -40,6 +40,28 @@ describe("totalsByChain", () => {
     expect(coto).toMatchObject({ chainId: "coto", subtotal: 2500, best: { paidAtCheckout: 2500, refund: 600, effective: 1900 } });
   });
 
+  // S25: product promotions lower each line before the chain's bank promotions apply.
+  it("prices each line with its branch offers on the day, then applies the chain's promotions", () => {
+    const withOffers: CartLine[] = [
+      {
+        productId: "a",
+        quantity: 3,
+        prices: { dia: 1000 },
+        offers: {
+          dia: [
+            { price: 1000, promos: [{ price: 750, minQuantity: 2, validFrom: null, validUntil: "2026-11-30" }] },
+            { price: 1100, promos: [] },
+          ],
+        },
+      },
+    ];
+    // Two units at 750, one at 1000; then 10% off the whole basket.
+    const [dia] = totalsByChain(withOffers, [promo({ id: "dia:1", chainId: "dia" })], context);
+    expect(dia).toMatchObject({ subtotal: 3000, best: { effective: 2250 } });
+    expect(totalsByChain(withOffers, [], context)[0]!.best.effective).toBe(2500);
+    expect(totalsByChain(withOffers, [], { ...context, day: "2026-12-01" })[0]!.best.effective).toBe(3000);
+  });
+
   it("is empty for an empty cart", () => expect(totalsByChain([], [], context)).toEqual([]));
 });
 

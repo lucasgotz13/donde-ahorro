@@ -66,6 +66,24 @@ export function parseBranch(r: SepaRecord) {
   };
 }
 
+const isoDate = (dmy: string) => dmy.split("/").reverse().join("-");
+
+/**
+ * S25: what a SEPA promo legend says. Día: "25% de descuento. 2DO AL 50% LECHE LV - Vigencia: Desde el 11/11/2026 hasta el
+ * 16/11/2026"; Carrefour: "Promo A valida desde el 12/11/2026 hasta 18/11/2026"; Coto: "DEL 13/11/2026 AL 18/11/2026".
+ * The deal after Día's "de descuento." sets the group size: "2DO AL", "3X2", "2X$1000", "LLEVANDO 2".
+ */
+export function parsePromoLegend(legend: string) {
+  const dates = /(?:desde el|del)\s+(\d{2}\/\d{2}\/\d{4})\s+(?:hasta(?: el)?|al)\s+(\d{2}\/\d{2}\/\d{4})/i.exec(legend);
+  const deal = /de descuento\.\s+(?:(\d+)(?:DO AL|X)|LLEVANDO (\d+))/i.exec(legend);
+  const group = Number(deal?.[1] ?? deal?.[2] ?? 1);
+  return {
+    minQuantity: group >= 2 && group <= 12 ? group : 1,
+    validFrom: dates ? isoDate(dates[1]!) : null,
+    validUntil: dates ? isoDate(dates[2]!) : null,
+  };
+}
+
 export type PriceRow = NonNullable<ReturnType<typeof parsePriceRow>>;
 
 export function parsePriceRow(r: SepaRecord) {
@@ -80,5 +98,11 @@ export function parsePriceRow(r: SepaRecord) {
     brand: (r.productos_marca ?? "").trim() || null,
     presentation: presentation || null,
     price,
+    promos: [1, 2].flatMap((slot) => {
+      const promoPrice = toCents(r[`productos_precio_unitario_promo${slot}`] ?? "");
+      return promoPrice !== null && promoPrice < price
+        ? [{ price: promoPrice, ...parsePromoLegend(r[`productos_leyenda_promo${slot}`] ?? "") }]
+        : [];
+    }),
   };
 }

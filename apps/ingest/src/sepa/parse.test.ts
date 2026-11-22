@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { parseBranch, parsePriceRow, readRecords, toCents } from "./parse.ts";
+import { parseBranch, parsePriceRow, parsePromoLegend, readRecords, toCents } from "./parse.ts";
 
 const fixture = (path: string) => createReadStream(new URL(`./fixtures/${path}`, import.meta.url));
 const collect = async (input: Readable) => {
@@ -90,11 +90,53 @@ describe("parsePriceRow", () => {
       brand: "NIDO",
       presentation: "800 grm",
       price: 2261700,
+      promos: [],
     });
     expect(rows.find((r) => r?.code === "2088440000000")?.isEan).toBe(false);
   });
 
   it("drops rows without a valid list price", () => {
     expect(parsePriceRow({ id_comercio: "15", id_bandera: "1", id_sucursal: "1", productos_precio_lista: "-190.00" })).toBeNull();
+  });
+});
+
+// S25: the legends found in the 2026-11-15 ZIP.
+describe("parsePromoLegend", () => {
+  it.each([
+    ["20% de descuento. Precio Promocional Exclusivo DIA en Sucursales Indicadas Hasta Agotar Stock o Finalice Vigencia.", 1, null, null],
+    ["25% de descuento. 25% DEO AXE - Vigencia: Desde el 18/11/2026 hasta el 23/11/2026", 1, "2026-11-18", "2026-11-23"],
+    ["25% de descuento. 2DO AL 50% LECHE LV - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026", 2, "2026-11-11", "2026-11-16"],
+    ["33% de descuento. 3X2 LINEA PEPSI 354M - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026", 3, "2026-11-11", "2026-11-16"],
+    ["15% de descuento. LLEVANDO 2 QUESO UNT - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026", 2, "2026-11-11", "2026-11-16"],
+    ["20% de descuento. 2X$1000 CARAM HALLS - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026", 2, "2026-11-11", "2026-11-16"],
+    ["10% de descuento. 25% GATORADE 500ML 2 - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026", 1, "2026-11-11", "2026-11-16"],
+    ["Promo A valida desde el 12/11/2026 hasta 18/11/2026", 1, "2026-11-12", "2026-11-18"],
+    ["DEL 13/11/2026 AL 18/11/2026", 1, "2026-11-13", "2026-11-18"],
+  ])("%s", (legend, minQuantity, validFrom, validUntil) => {
+    expect(parsePromoLegend(legend)).toEqual({ minQuantity, validFrom, validUntil });
+  });
+});
+
+describe("parsePriceRow promos", () => {
+  const row = (fields: Record<string, string>) =>
+    parsePriceRow({ id_comercio: "15", id_bandera: "1", id_sucursal: "1", id_producto: "1", productos_precio_lista: "3250.00", ...fields });
+
+  it("reads both promo slots below the list price", () => {
+    expect(
+      row({
+        productos_precio_unitario_promo1: "2600.00",
+        productos_leyenda_promo1: "20% de descuento. Precio Promocional Exclusivo DIA en Sucursales Indicadas Hasta Agotar Stock o Finalice Vigencia.",
+        productos_precio_unitario_promo2: "2437.50",
+        productos_leyenda_promo2: "25% de descuento. 2DO AL 50% LECHE LV - Vigencia: Desde el 11/11/2026 hasta el 16/11/2026",
+      })?.promos,
+    ).toEqual([
+      { price: 260000, minQuantity: 1, validFrom: null, validUntil: null },
+      { price: 243750, minQuantity: 2, validFrom: "2026-11-11", validUntil: "2026-11-16" },
+    ]);
+  });
+
+  it("drops empty, invalid and not-cheaper promo prices", () => {
+    expect(row({ productos_precio_unitario_promo1: "", productos_precio_unitario_promo2: "3250.00" })?.promos).toEqual([]);
+    expect(row({ productos_precio_unitario_promo1: "-1", productos_precio_unitario_promo2: "abc" })?.promos).toEqual([]);
   });
 });

@@ -29,13 +29,14 @@ const copyValue = (value: string | number | null) =>
  * republished with a correction). An older `day` than the one already seen changes nothing, so
  * periods never overlap. A product listed twice for one branch keeps its lowest price. Products missing from the file keep
  * their last known price (S9).
+ * S25: the load's product promotions replace the chain's, unless a newer day already set them.
  */
 export async function loadChain(
   sql: postgres.Sql,
   { day, branches, rows }: { day: IsoDate; branches: LoadBranch[]; rows: AsyncIterable<PriceRow> },
 ) {
   const chainOf = new Map(branches.map((b) => [b.id, b.chainId]));
-  const stats = { day, branches: branches.length, rows: 0, skipped: 0, new: 0, changed: 0, inPlace: 0, unchanged: 0 };
+  const stats = { day, branches: branches.length, rows: 0, skipped: 0, new: 0, changed: 0, inPlace: 0, unchanged: 0, promos: 0 };
 
   await sql.begin(async (tx) => {
     if (branches.length > 0) {
@@ -45,7 +46,9 @@ export async function loadChain(
     }
 
     await tx`create temp table staging (chain_id text, branch_id text, code text, is_ean boolean,
-      description text, brand text, presentation text, price integer) on commit drop`;
+      description text, brand text, presentation text, price integer,
+      promo1_price integer, promo1_min smallint, promo1_from date, promo1_until date,
+      promo2_price integer, promo2_min smallint, promo2_from date, promo2_until date) on commit drop`;
     const copy = await tx`copy staging from stdin`.writable();
     await pipeline(async function* () {
       for await (const r of rows) {
@@ -55,7 +58,11 @@ export async function loadChain(
           continue;
         }
         stats.rows++;
-        yield [chainId, r.branchId, r.code, r.isEan ? "t" : "f", r.description, r.brand, r.presentation, r.price].map(copyValue).join("\t") + "\n";
+        const promos = [0, 1].flatMap((i) => {
+          const p = r.promos[i];
+          return p ? [p.price, p.minQuantity, p.validFrom, p.validUntil] : [null, null, null, null];
+        });
+        yield [chainId, r.branchId, r.code, r.isEan ? "t" : "f", r.description, r.brand, r.presentation, r.price, ...promos].map(copyValue).join("\t") + "\n";
       }
     }, copy);
 
@@ -67,14 +74,28 @@ export async function loadChain(
       select distinct on (chain_id, code) chain_id, code, description, brand, presentation from staging where not is_ean
       order by chain_id, code, description
       on conflict (chain_id, chain_product_code) do nothing`;
+    await tx`create temp table resolved on commit drop as
+      select p.id as product_id, s.* from staging s join products p on p.ean = s.code where s.is_ean
+      union all
+      select p.id, s.* from staging s join products p on p.chain_id = s.chain_id and p.chain_product_code = s.code where not s.is_ean`;
     await tx`create temp table today on commit drop as
-      select distinct on (product_id, branch_id) product_id, branch_id, price from (
-        select p.id as product_id, s.branch_id, s.price from staging s join products p on p.ean = s.code where s.is_ean
-        union all
-        select p.id, s.branch_id, s.price from staging s
-          join products p on p.chain_id = s.chain_id and p.chain_product_code = s.code where not s.is_ean
-      ) resolved order by product_id, branch_id, price`;
+      select distinct on (product_id, branch_id) product_id, branch_id, price from resolved order by product_id, branch_id, price`;
     await tx`analyze today`;
+
+    const chainIds = [...new Set(branches.map((b) => b.chainId))];
+    const chainBranches = tx`select id from branches where chain_id = any(${chainIds}::text[])`;
+    const [newer] = await tx`select 1 from product_promos where branch_id in (${chainBranches}) and published > ${day} limit 1`;
+    if (!newer) {
+      await tx`delete from product_promos where branch_id in (${chainBranches})`;
+      stats.promos = (await tx`insert into product_promos (product_id, branch_id, slot, price, min_quantity, valid_from, valid_until, published)
+        select distinct on (product_id, branch_id, slot) product_id, branch_id, slot, price, min_quantity, valid_from, valid_until, ${day}::date
+        from (
+          select product_id, branch_id, 1 as slot, promo1_price as price, promo1_min as min_quantity, promo1_from as valid_from, promo1_until as valid_until
+          from resolved where promo1_price is not null
+          union all
+          select product_id, branch_id, 2, promo2_price, promo2_min, promo2_from, promo2_until from resolved where promo2_price is not null
+        ) p order by product_id, branch_id, slot, price`).count;
+    }
 
     const open = tx`pp.product_id = t.product_id and pp.branch_id = t.branch_id and pp.valid_to is null`;
     // The same day loaded again (a republished ZIP): correct the price that day opened.

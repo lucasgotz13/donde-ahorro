@@ -1,18 +1,27 @@
 import type { Cents, Promotion } from "../promotions/promotion.ts";
 import { bestPrice, type PriceBreakdown, type PurchaseContext } from "./best-price.ts";
+import { offerCost, type Offer } from "./product-promo.ts";
 
-/** One cart product: how many, and its unit price at each chain that sells it. */
+/** One cart product: how many, and its cheapest list price at each chain that sells it. */
 export interface CartLine {
   productId: string;
   quantity: number;
   prices: Record<string, Cents>;
+  /** S25: each branch's offer by chain id; without one, the line costs its list price. */
+  offers?: Record<string, Offer[]>;
 }
+
+/** What the line costs at a chain on `day`: its cheapest branch offer for this quantity. */
+const lineCost = (line: CartLine, chainId: string, day: string) => {
+  const offers = line.offers?.[chainId];
+  return offers?.length ? Math.min(...offers.map((o) => offerCost(o, line.quantity, day))) : line.prices[chainId]! * line.quantity;
+};
 
 export interface ChainTotal {
   chainId: string;
   /** List price of what this chain sells from the cart. */
   subtotal: Cents;
-  /** S16: promotions and caps apply to the whole transaction. */
+  /** S25: product promotions first, then S16: promotions and caps apply to the whole transaction. */
   best: PriceBreakdown;
   /** Cart products this chain does not sell. */
   missing: string[];
@@ -20,7 +29,8 @@ export interface ChainTotal {
 
 const basketPrice = (chainId: string, lines: CartLine[], promotions: Promotion[], context: PurchaseContext) => {
   const subtotal = lines.reduce((sum, l) => sum + l.prices[chainId]! * l.quantity, 0);
-  return { subtotal, best: bestPrice(subtotal, promotions.filter((p) => p.chainId === chainId), context) };
+  const promoPriced = lines.reduce((sum, l) => sum + lineCost(l, chainId, context.day), 0);
+  return { subtotal, best: bestPrice(promoPriced, promotions.filter((p) => p.chainId === chainId), context) };
 };
 
 /** S17 (a): the whole cart at each chain; chains that sell everything first, cheapest first. */
@@ -68,7 +78,10 @@ export function bestSplit(lines: CartLine[], promotions: Promotion[], context: P
   };
 
   const assignment = new Map(
-    sellable.map((l) => [l.productId, Object.entries(l.prices).reduce((best, entry) => (entry[1] < best[1] ? entry : best))[0]]),
+    sellable.map((l) => {
+      const costs = Object.keys(l.prices).map((chainId) => [chainId, lineCost(l, chainId, context.day)] as const);
+      return [l.productId, costs.reduce((best, entry) => (entry[1] < best[1] ? entry : best))[0]];
+    }),
   );
   let best = plan(assignment);
   // shortcut: single-product moves can miss a cheaper split that needs two moves at once; fine for carts of a few dozen products.

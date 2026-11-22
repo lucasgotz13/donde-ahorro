@@ -6,3 +6,4 @@ export * from "./promotions/promotion.ts";
 export * from "./pricing/best-price.ts";
 export * from "./pricing/history.ts";
 export * from "./pricing/cart.ts";
+export * from "./pricing/product-promo.ts";

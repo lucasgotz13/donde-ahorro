@@ -1,4 +1,4 @@
-import type { Cents, IsoDate, Promotion } from "@donde-ahorro/core";
+import type { Cents, IsoDate, Offer, ProductPromo, Promotion } from "@donde-ahorro/core";
 import type postgres from "postgres";
 
 type Sql = postgres.Sql;
@@ -62,7 +62,14 @@ export interface BranchPrice {
   address: string;
   price: Cents;
   lastSeen: IsoDate;
+  /** S25: this branch's product promotions. */
+  promos: ProductPromo[];
 }
+
+/** S25: a price row's product promotions, as core `ProductPromo`s. */
+const promosOf = (sql: Sql, pp: postgres.Fragment) => sql`coalesce((
+  select json_agg(json_build_object('price', pr.price, 'minQuantity', pr.min_quantity, 'validFrom', pr.valid_from, 'validUntil', pr.valid_until) order by pr.slot)
+  from product_promos pr where pr.product_id = ${pp}.product_id and pr.branch_id = ${pp}.branch_id), '[]')`;
 
 export interface ChainPrices {
   chainId: string;
@@ -90,7 +97,7 @@ export async function getProduct(sql: Sql, id: string, branchIds?: string[]): Pr
   const [product] = await sql`select id::text, ean, description, brand, presentation from products where id = ${id}`;
   if (!product) return;
   const rows = await sql`
-    select b.chain_id, c.name as chain_name, b.id as branch_id, b.name, b.address, pp.price, pp.last_seen::text
+    select b.chain_id, c.name as chain_name, b.id as branch_id, b.name, b.address, pp.price, pp.last_seen::text, ${promosOf(sql, sql`pp`)} as promos
     from price_periods pp
     join branches b on b.id = pp.branch_id
     join chains c on c.id = b.chain_id
@@ -102,7 +109,7 @@ export async function getProduct(sql: Sql, id: string, branchIds?: string[]): Pr
     const chain: ChainPrices = chains.get(r.chain_id) ?? { chainId: r.chain_id, chainName: r.chain_name, minPrice: r.price, maxPrice: r.price, lastSeen: r.last_seen, branches: [] };
     chain.maxPrice = Math.max(chain.maxPrice, r.price);
     if (r.last_seen > chain.lastSeen) chain.lastSeen = r.last_seen;
-    chain.branches.push({ branchId: r.branch_id, name: r.name, address: r.address, price: r.price, lastSeen: r.last_seen });
+    chain.branches.push({ branchId: r.branch_id, name: r.name, address: r.address, price: r.price, lastSeen: r.last_seen, promos: r.promos });
     chains.set(r.chain_id, chain);
   }
   // Rows come cheapest first, so chains are already ordered by their minimum price.
@@ -254,24 +261,28 @@ export interface CartProduct {
   presentation: string | null;
   /** Cheapest current price per chain id; chains without a price are absent. */
   prices: Record<string, Cents>;
+  /** S25: each branch's price and product promotions per chain id, cheapest first. */
+  offers: Record<string, Offer[]>;
 }
 
 /** S17: cart products in the given order, unknown ids dropped; `branchIds` as in `getProduct`. */
 export async function getCartProducts(sql: Sql, ids: string[], branchIds?: string[]): Promise<CartProduct[]> {
   if (!ids.length) return [];
   const rows = await sql`
-    select p.id::text, p.description, p.presentation, b.chain_id, min(pp.price)::int as price
+    select p.id::text, p.description, p.presentation, b.chain_id, pp.price, ${promosOf(sql, sql`pp`)} as promos
     from products p
     left join price_periods pp on pp.product_id = p.id and pp.valid_to is null
       ${branchIds ? sql`and pp.branch_id = any(${branchIds}::text[])` : sql``}
     left join branches b on b.id = pp.branch_id
     where p.id = any(${ids}::bigint[])
-    group by p.id, p.description, p.presentation, b.chain_id
-    order by b.chain_id`;
+    order by b.chain_id, pp.price`;
   const byId = new Map<string, CartProduct>();
   for (const r of rows) {
-    const product: CartProduct = byId.get(r.id) ?? { id: r.id, description: r.description, presentation: r.presentation, prices: {} };
-    if (r.chain_id) product.prices[r.chain_id] = r.price;
+    const product: CartProduct = byId.get(r.id) ?? { id: r.id, description: r.description, presentation: r.presentation, prices: {}, offers: {} };
+    if (r.chain_id) {
+      product.prices[r.chain_id] = Math.min(product.prices[r.chain_id] ?? r.price, r.price);
+      (product.offers[r.chain_id] ??= []).push({ price: r.price, promos: r.promos });
+    }
     byId.set(r.id, product);
   }
   return ids.flatMap((id) => byId.get(id) ?? []);
