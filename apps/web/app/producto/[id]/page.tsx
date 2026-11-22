@@ -95,10 +95,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
           ))}
         </select>
         <button type="submit">Agregar al carrito</button>
-        {search.agregado && (
+        {search.agregado === "lleno" ? (
           <span role="status">
-            Agregado. <Link href="/carrito">Ver carrito</Link>
+            Tu carrito ya tiene 50 productos. <Link href="/carrito">Sacá alguno</Link> para agregar otro.
           </span>
+        ) : (
+          search.agregado && (
+            <span role="status">
+              Agregado. <Link href="/carrito">Ver carrito</Link>
+            </span>
+          )
         )}
       </form>
 
