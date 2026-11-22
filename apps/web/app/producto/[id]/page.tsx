@@ -3,11 +3,12 @@ import { getPriceHistory, getProduct, similarProducts } from "@donde-ahorro/db/q
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "../../../lib/db.ts";
-import { freshnessLabel, priceText, sentenceCase, shortDate, titleCase, todayInArgentina } from "../../../lib/format.ts";
+import { selectedBranchIds } from "../../../lib/selection.ts";
+import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
 import { Price } from "../../_components/price.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
@@ -15,10 +16,18 @@ export async function generateMetadata({ params }: Props) {
   return { title: product ? `${sentenceCase(product.description)} | Dónde Ahorro` : "Dónde Ahorro" };
 }
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const { id } = await params;
   if (!/^\d+$/.test(id)) notFound();
-  const [product, history, similar] = await Promise.all([getProduct(sql, id), getPriceHistory(sql, id), similarProducts(sql, id)]);
+  const mine = await selectedBranchIds();
+  // S3: only the user's branches, unless they ask for all of CABA.
+  const showAll = (await searchParams).todas === "1";
+  const filter = mine.length && !showAll ? mine : undefined;
+  const [product, history, similar] = await Promise.all([
+    getProduct(sql, id, filter),
+    getPriceHistory(sql, id, filter),
+    similarProducts(sql, id),
+  ]);
   if (!product) notFound();
 
   const today = todayInArgentina();
@@ -36,16 +45,33 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <main className="page">
-      <Link href="/" className="wordmark">
-        Dónde Ahorro
-      </Link>
       <h1 className="headline">{sentenceCase(product.description)}</h1>
       <p className="product-meta">
         {[product.brand && titleCase(product.brand), product.presentation, product.ean && `código ${product.ean}`].filter(Boolean).join(", ")}
       </p>
 
+      <p className="scope">
+        {filter ? (
+          <>
+            En tus {mine.length === 1 ? "sucursal" : `${mine.length} sucursales`}. <Link href={`/producto/${id}?todas=1`}>Ver todas las de CABA</Link>
+          </>
+        ) : mine.length ? (
+          <>
+            En todas las sucursales de CABA. <Link href={`/producto/${id}`}>Ver solo las tuyas</Link>
+          </>
+        ) : (
+          <>
+            En todas las sucursales de CABA. <Link href="/sucursales">Elegí las tuyas</Link>
+          </>
+        )}
+      </p>
+
       {product.chains.length === 0 ? (
-        <p className="notice">Ninguna sucursal de CABA informa un precio actual para este producto.</p>
+        <p className="notice">
+          {filter
+            ? "Ninguna de tus sucursales informa un precio actual para este producto."
+            : "Ninguna sucursal de CABA informa un precio actual para este producto."}
+        </p>
       ) : (
         <ol className="chains" aria-label="Precio por cadena, del más barato al más caro">
           {product.chains.map((chain) => {
@@ -79,8 +105,8 @@ export default async function ProductPage({ params }: Props) {
                     {chain.branches.map((b) => (
                       <li key={b.branchId}>
                         <span>
-                          {b.name}
-                          <span className="branch-address">{b.address}</span>
+                          {tidy(b.name)}
+                          <span className="branch-address">{tidy(b.address)}</span>
                         </span>
                         <Price cents={b.price} />
                       </li>

@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { getPriceHistory, getProduct, lastSepaUpdate, searchProducts, similarProducts } from "./queries.ts";
+import { getBranches, getPriceHistory, getProduct, lastSepaUpdate, nearestBranches, searchBranches, searchProducts, similarProducts } from "./queries.ts";
 import { createTestDatabase } from "./test-database.ts";
 
 const adminUrl = process.env.DATABASE_URL;
@@ -15,11 +15,11 @@ describe.skipIf(!adminUrl)("product queries", () => {
     sql = db.sql;
     await sql`insert into chains (id, name, sepa_comercio_id, sepa_bandera_id) values
       ('coto', 'Coto', 12, 1), ('dia', 'Día', 15, 1), ('jumbo', 'Jumbo', 9, 3)`;
-    await sql`insert into branches (id, chain_id, name, address) values
-      ('12-1-1', 'coto', 'Coto Caballito', 'Av. Rivadavia 5000'),
-      ('12-1-2', 'coto', 'Coto Palermo', 'Av. Santa Fe 3000'),
-      ('15-1-1', 'dia', 'Día Almagro', 'Medrano 800'),
-      ('9-3-1', 'jumbo', 'Jumbo Palermo', 'Bullrich 345')`;
+    await sql`insert into branches (id, chain_id, name, address, lat, lng) values
+      ('12-1-1', 'coto', 'Coto Caballito', 'Av. Rivadavia 5000', -34.6183, -58.4365),
+      ('12-1-2', 'coto', 'Coto Palermo', 'Av. Santa Fe 3000', -34.5880, -58.4110),
+      ('15-1-1', 'dia', 'Día Almagro', 'Medrano 800', -34.6030, -58.4200),
+      ('9-3-1', 'jumbo', 'Jumbo Palermo', 'Bullrich 345', -34.5750, -58.4270)`;
     const product = async (key: string, fields: Record<string, string | null>) => {
       const [row] = await sql`insert into products ${sql(fields)} returning id::text`;
       ids[key] = row!.id;
@@ -106,6 +106,12 @@ describe.skipIf(!adminUrl)("product queries", () => {
       ]);
     });
 
+    // S3: only the user's branches, when they chose some.
+    it("keeps only the given branches and drops chains without one", async () => {
+      const product = await getProduct(sql, ids.dulce!, ["12-1-1", "9-3-1"]);
+      expect(product!.chains.map((c) => [c.chainId, c.branches.map((b) => b.branchId), c.minPrice])).toEqual([["coto", ["12-1-1"], 270000]]);
+    });
+
     it("is undefined for an unknown product", async () => {
       expect(await getProduct(sql, "999999")).toBeUndefined();
     });
@@ -115,6 +121,7 @@ describe.skipIf(!adminUrl)("product queries", () => {
     const history = await getPriceHistory(sql, ids.dulce!);
     expect(history).toHaveLength(5);
     expect(history).toContainEqual({ chainId: "jumbo", chainName: "Jumbo", price: 300000, validFrom: "2026-11-01", validTo: "2026-11-08" });
+    expect((await getPriceHistory(sql, ids.dulce!, ["12-1-2"])).map((h) => h.price)).toEqual([260000]);
   });
 
   // S10: description matches are shown as "productos similares", never merged.
@@ -129,5 +136,32 @@ describe.skipIf(!adminUrl)("product queries", () => {
       ('sepa', 'succeeded', '2026-11-19T16:19:56Z', '2026-11-19T17:00:00Z'),
       ('sepa', 'skipped', '2026-11-13T16:19:56Z', '2026-11-20T17:00:00Z')`;
     expect((await lastSepaUpdate(sql))?.toISOString()).toBe("2026-11-19T16:19:56.000Z");
+  });
+
+  // S3: branch selection.
+  describe("branches", () => {
+    const names = (rows: { name: string }[]) => rows.map((r) => r.name);
+
+    it("nearestBranches sorts by distance and says how far each one is", async () => {
+      // Av. Rivadavia 5000, as Georef geocodes it.
+      const near = await nearestBranches(sql, { lat: -34.6183, lng: -58.4365 }, 3);
+      expect(names(near)).toEqual(["Coto Caballito", "Día Almagro", "Coto Palermo"]);
+      expect(near[0]).toMatchObject({ id: "12-1-1", chainName: "Coto", address: "Av. Rivadavia 5000", meters: 0 });
+      // About 1.70 km north and 1.51 km east: 2.27 km.
+      expect(near[1]!.meters).toBeGreaterThan(2200);
+      expect(near[1]!.meters).toBeLessThan(2350);
+    });
+
+    it("searchBranches matches every word of chain, name or address, without accents", async () => {
+      expect(names(await searchBranches(sql, "palermo"))).toEqual(["Coto Palermo", "Jumbo Palermo"]);
+      expect(names(await searchBranches(sql, "coto palermo"))).toEqual(["Coto Palermo"]);
+      expect(names(await searchBranches(sql, "dia medrano"))).toEqual(["Día Almagro"]);
+      expect(await searchBranches(sql, "  ")).toEqual([]);
+    });
+
+    it("getBranches returns the given ids, ignoring unknown ones", async () => {
+      expect(names(await getBranches(sql, ["9-3-1", "nope", "12-1-1"]))).toEqual(["Coto Caballito", "Jumbo Palermo"]);
+      expect(await getBranches(sql, [])).toEqual([]);
+    });
   });
 });

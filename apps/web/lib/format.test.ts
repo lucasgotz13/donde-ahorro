@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { freshnessLabel, priceParts, priceText, sentenceCase, titleCase, todayInArgentina } from "./format.ts";
+import { freshnessLabel, priceParts, priceText, sentenceCase, tidy, titleCase, todayInArgentina } from "./format.ts";
 
 describe("priceParts", () => {
   it.each([
@@ -34,4 +34,9 @@ it("titleCase capitalizes every word of a SEPA brand", () => {
   expect(titleCase("LA SERENISIMA")).toBe("La Serenisima");
   expect(titleCase("COCA-COLA")).toBe("Coca-Cola");
   expect(titleCase("ÑANDÚ")).toBe("Ñandú");
+});
+
+it("tidy retitles all-caps SEPA text and leaves mixed case alone", () => {
+  expect(tidy("CL BEIRO 3146")).toBe("Cl Beiro 3146");
+  expect(tidy("Av. Donato Alvarez 1351")).toBe("Av. Donato Alvarez 1351");
 });

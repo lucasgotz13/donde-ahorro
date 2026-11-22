@@ -7,6 +7,12 @@ type Sql = postgres.Sql;
 const fold = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
 const foldColumn = (sql: Sql, column: postgres.Fragment) => sql`translate(upper(${column}), 'ÁÉÍÓÚÜÑ', 'AEIOUUN')`;
 
+/** The folded words of `query`, and a `LIKE` pattern per word. */
+function words(query: string) {
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  return { terms, patterns: terms.map((t) => `%${t.replace(/[\\%_]/g, "\\$&")}%`) };
+}
+
 export interface ProductMatch {
   /** `bigint`, kept as text. */
   id: string;
@@ -24,10 +30,9 @@ export interface ProductMatch {
  * Descriptions that start with the first word come first, then those sold by more chains, then shorter ones.
  */
 export async function searchProducts(sql: Sql, query: string, limit = 30): Promise<ProductMatch[]> {
-  const terms = fold(query).split(/\s+/).filter(Boolean);
+  const { terms, patterns } = words(query);
   // A query of only one- or two-letter words matches most of the catalog: ask for a real word instead.
   if (!terms.some((t) => t.length >= 3)) return [];
-  const patterns = terms.map((t) => `%${t.replace(/[\\%_]/g, "\\$&")}%`);
   const starts = `${patterns[0]!.slice(1)}`; // the first word at the start of the description
   const text = foldColumn(sql, sql`description || ' ' || coalesce(brand, '')`);
   // shortcut: scans every match (~150 ms for "leche" on 42k products); add a pg_trgm index and a
@@ -80,7 +85,8 @@ export interface ProductDetail {
   chains: ChainPrices[];
 }
 
-export async function getProduct(sql: Sql, id: string): Promise<ProductDetail | undefined> {
+/** `branchIds` (S3): only the user's branches; chains without one are left out. */
+export async function getProduct(sql: Sql, id: string, branchIds?: string[]): Promise<ProductDetail | undefined> {
   const [product] = await sql`select id::text, ean, description, brand, presentation from products where id = ${id}`;
   if (!product) return;
   const rows = await sql`
@@ -89,6 +95,7 @@ export async function getProduct(sql: Sql, id: string): Promise<ProductDetail | 
     join branches b on b.id = pp.branch_id
     join chains c on c.id = b.chain_id
     where pp.product_id = ${id} and pp.valid_to is null
+      ${branchIds ? sql`and pp.branch_id = any(${branchIds}::text[])` : sql``}
     order by pp.price, b.name`;
   const chains = new Map<string, ChainPrices>();
   for (const r of rows) {
@@ -110,8 +117,8 @@ export interface ChainPeriod {
   validTo: IsoDate | null;
 }
 
-/** S2 (c): every stored price period of a product, with its chain. */
-export function getPriceHistory(sql: Sql, id: string): Promise<ChainPeriod[]> {
+/** S2 (c): every stored price period of a product, with its chain; `branchIds` as in `getProduct`. */
+export function getPriceHistory(sql: Sql, id: string, branchIds?: string[]): Promise<ChainPeriod[]> {
   return sql<ChainPeriod[]>`
     select b.chain_id as "chainId", c.name as "chainName", pp.price,
       pp.valid_from::text as "validFrom", pp.valid_to::text as "validTo"
@@ -119,6 +126,7 @@ export function getPriceHistory(sql: Sql, id: string): Promise<ChainPeriod[]> {
     join branches b on b.id = pp.branch_id
     join chains c on c.id = b.chain_id
     where pp.product_id = ${id}
+      ${branchIds ? sql`and pp.branch_id = any(${branchIds}::text[])` : sql``}
     order by pp.valid_from`;
 }
 
@@ -148,4 +156,54 @@ export async function lastSepaUpdate(sql: Sql): Promise<Date | undefined> {
   const [run] = await sql`select source_last_modified from ingest_runs
     where source = 'sepa' and status = 'succeeded' order by started_at desc limit 1`;
   return run?.source_last_modified ?? undefined;
+}
+
+export interface BranchSummary {
+  id: string;
+  chainId: string;
+  chainName: string;
+  name: string;
+  address: string;
+}
+
+const branchColumns = (sql: Sql) =>
+  sql`b.id, b.chain_id as "chainId", c.name as "chainName", b.name, b.address`;
+
+/** S3: branches whose chain, name or address hold every word of `query`. */
+export function searchBranches(sql: Sql, query: string, limit = 50): Promise<BranchSummary[]> {
+  const { patterns } = words(query);
+  if (!patterns.length) return Promise.resolve([]);
+  return sql<BranchSummary[]>`
+    select ${branchColumns(sql)} from branches b join chains c on c.id = b.chain_id
+    where ${foldColumn(sql, sql`c.name || ' ' || b.name || ' ' || b.address`)} like all(${patterns}::text[])
+    order by c.name, b.name
+    limit ${limit}`;
+}
+
+/** S3: the closest branches to a point, with the straight-line distance in meters. */
+export function nearestBranches(
+  sql: Sql,
+  { lat, lng }: { lat: number; lng: number },
+  limit = 10,
+): Promise<(BranchSummary & { meters: number })[]> {
+  // Haversine on a 6,371 km sphere; a full scan of ~900 branches is instant.
+  return sql<(BranchSummary & { meters: number })[]>`
+    select ${branchColumns(sql)},
+      round(2 * 6371000 * asin(sqrt(
+        power(sin(radians(b.lat - ${lat}) / 2), 2) +
+        cos(radians(${lat})) * cos(radians(b.lat)) * power(sin(radians(b.lng - ${lng}) / 2), 2)
+      )))::int as meters
+    from branches b join chains c on c.id = b.chain_id
+    where b.lat is not null and b.lng is not null
+    order by meters, b.id
+    limit ${limit}`;
+}
+
+/** The branches with these ids, in chain and name order; unknown ids are ignored. */
+export function getBranches(sql: Sql, ids: string[]): Promise<BranchSummary[]> {
+  if (!ids.length) return Promise.resolve([]);
+  return sql<BranchSummary[]>`
+    select ${branchColumns(sql)} from branches b join chains c on c.id = b.chain_id
+    where b.id = any(${ids}::text[])
+    order by c.name, b.name`;
 }
