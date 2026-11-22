@@ -64,6 +64,17 @@ describe("parseCotoPromotions", () => {
     });
   });
 
+  it("reads validity from the first two dates, across the new year and ignoring later dates", () => {
+    const valid = (descripcion: string) => {
+      const promo = { id: "1", icono: "logo_credicoop.png", textoDescuento: "20% DE DESCUENTO", descripcion, observacion: null, dias: [{ id: 2 }] };
+      const [p] = parseCotoPromotions({ result: { promocionesDigitales: [promo], promocionesSucursalesFisicas: [] } }, "2026-12-29");
+      return [p!.validFrom, p!.validTo];
+    };
+    expect(valid("Vigencia del 28/12 al 03/01/2027.")).toEqual(["2026-12-28", "2027-01-03"]);
+    expect(valid("Vigencia del 28/12 al 03/01.")).toEqual(["2026-12-28", "2027-01-03"]);
+    expect(valid("Del 01/11 al 30/11/2026. El reintegro se acredita el 15/12/2026.")).toEqual(["2026-11-01", "2026-11-30"]);
+  });
+
   it("reads an additional percent, explicit stacking and an unparsed cap", () => {
     expect(byId("coto:451")).toMatchObject({ percent: 10, stackable: true, cap: "unknown", weekdays: [0, 6] });
     expect(byId("coto:450")!.stackable).toBeUndefined();

@@ -117,8 +117,10 @@ export async function scrapeCarrefour(baseUrl = "https://www.carrefour.com.ar", 
   const url = (entity: string, params: Record<string, string>) =>
     `${baseUrl}/api/dataentities/${entity}/search?${new URLSearchParams({ _schema: "mdv1", ...params })}`;
   const at = now.toISOString().slice(0, 19);
+  // S19: the day selector reaches 6 days ahead, so promotions starting this week count too; `isActiveOn` picks the day.
+  const weekEnd = new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 19);
   const promotions = await search<BankPromotion>(
-    url("BP", { _fields: FIELDS.join(","), _where: `active=true AND ((active_from < ${at}) AND (active_to > ${at}))` }),
+    url("BP", { _fields: FIELDS.join(","), _where: `active=true AND ((active_from < ${weekEnd}) AND (active_to > ${at}))` }),
   );
   const banks = await search<{ id: string; name: string }>(url("FB", { _fields: "id,name" }));
   const cards = await search<{ id: string; name: string }>(url("FC", { _fields: "id,name" }));

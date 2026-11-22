@@ -27,6 +27,10 @@ test("search finds a product and the cheapest chain wears the tag", async ({ pag
   await expect(chains(page).filter({ hasText: "Jumbo" })).toContainText("Promos no informadas");
 });
 
+test("a product id too long for a bigint is not found, not a server error", async ({ page }) => {
+  expect((await page.goto("/producto/99999999999999999999"))?.status()).toBe(404);
+});
+
 // S19: today by default, the next 7 days; a promotion applies only on its weekday.
 test("a weekday promotion applies only on its day", async ({ page }) => {
   await openYerba(page);

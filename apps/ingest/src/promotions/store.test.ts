@@ -81,8 +81,8 @@ describe.skipIf(!adminUrl)("runPromotionSource", () => {
   });
 
   it("skips invalid weekdays and percents", async () => {
-    await run(async () => [promo({ id: "test:1", weekdays: [7] }), promo({ id: "test:2", percent: 0 }), promo({ id: "test:3", percent: 120 }), promo({ id: "test:4", weekdays: [1.5] })]);
-    expect(await rows()).toEqual([]);
+    await run(async () => [promo({ id: "test:1", weekdays: [7] }), promo({ id: "test:2", percent: 0 }), promo({ id: "test:3", percent: 120 }), promo({ id: "test:4", weekdays: [1.5] }), promo({ id: "test:5" })]);
+    expect((await rows()).map((r) => r.id)).toEqual(["test:5"]);
     expect((await lastRun())!.stats.skipped.map((s: { reason: string }) => s.reason)).toEqual([
       "día inválido: 7",
       "porcentaje inválido: 0",
@@ -103,6 +103,16 @@ describe.skipIf(!adminUrl)("runPromotionSource", () => {
     await expect(run(async () => { throw new Error("HTTP 503"); })).rejects.toThrow("HTTP 503");
     expect((await rows()).map((r) => r.id)).toEqual(["test:1"]);
     expect(await lastRun()).toMatchObject({ status: "failed", message: "Error: HTTP 503" });
+  });
+
+  it("keeps the previous promotions and logs a failed run when every scraped promotion is rejected", async () => {
+    await run(async () => [promo()]);
+    await expect(run(async () => [promo({ id: "test:2", rawEntity: "Banco Marciano" })])).rejects.toThrow("every scraped promotion was rejected");
+    expect((await rows()).map((r) => r.id)).toEqual(["test:1"]);
+    expect(await lastRun()).toMatchObject({
+      status: "failed",
+      message: "Error: every scraped promotion was rejected (1), first: entidad desconocida: Banco Marciano",
+    });
   });
 
   it("does not scrape when the source is disabled by configuration", async () => {
