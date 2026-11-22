@@ -2,6 +2,8 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   getBranches,
+  getCartProducts,
+  getChainNames,
   getPaymentCatalog,
   getPriceHistory,
   getProduct,
@@ -212,6 +214,27 @@ describe.skipIf(!adminUrl)("product queries", () => {
         media: [{ id: "credit", name: "Tarjeta de crédito" }, { id: "debit", name: "Tarjeta de débito" }],
         conditions: [{ id: "comunidad-coto", name: "Comunidad Coto" }],
       });
+    });
+  });
+
+  // S17: each cart product with its cheapest current price per chain.
+  describe("getCartProducts", () => {
+    it("returns the given products with their cheapest price per chain, in the given order", async () => {
+      const cart = await getCartProducts(sql, [ids.leche!, ids.dulce!, "999999"]);
+      expect(cart).toEqual([
+        { id: ids.leche, description: "LECHE ENTERA LA SERENISIMA SACHET 1 LT", presentation: "1 lt", prices: { dia: 150000 } },
+        { id: ids.dulce, description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM", presentation: "400 grm", prices: { coto: 260000, dia: 240000 } },
+      ]);
+    });
+
+    it("getChainNames maps chain ids to names", async () => {
+      expect(await getChainNames(sql)).toEqual({ coto: "Coto", dia: "Día", jumbo: "Jumbo" });
+    });
+
+    it("only looks at the given branches", async () => {
+      const [dulce] = await getCartProducts(sql, [ids.dulce!], ["12-1-1"]);
+      expect(dulce!.prices).toEqual({ coto: 270000 });
+      expect(await getCartProducts(sql, [])).toEqual([]);
     });
   });
 });

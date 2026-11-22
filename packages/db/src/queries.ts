@@ -247,3 +247,37 @@ export async function getPaymentCatalog(sql: Sql): Promise<{ entities: CatalogIt
   ]);
   return { entities, media, conditions };
 }
+
+export interface CartProduct {
+  id: string;
+  description: string;
+  presentation: string | null;
+  /** Cheapest current price per chain id; chains without a price are absent. */
+  prices: Record<string, Cents>;
+}
+
+/** S17: cart products in the given order, unknown ids dropped; `branchIds` as in `getProduct`. */
+export async function getCartProducts(sql: Sql, ids: string[], branchIds?: string[]): Promise<CartProduct[]> {
+  if (!ids.length) return [];
+  const rows = await sql`
+    select p.id::text, p.description, p.presentation, b.chain_id, min(pp.price)::int as price
+    from products p
+    left join price_periods pp on pp.product_id = p.id and pp.valid_to is null
+      ${branchIds ? sql`and pp.branch_id = any(${branchIds}::text[])` : sql``}
+    left join branches b on b.id = pp.branch_id
+    where p.id = any(${ids}::bigint[])
+    group by p.id, p.description, p.presentation, b.chain_id
+    order by b.chain_id`;
+  const byId = new Map<string, CartProduct>();
+  for (const r of rows) {
+    const product: CartProduct = byId.get(r.id) ?? { id: r.id, description: r.description, presentation: r.presentation, prices: {} };
+    if (r.chain_id) product.prices[r.chain_id] = r.price;
+    byId.set(r.id, product);
+  }
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+/** Chain id → display name. */
+export async function getChainNames(sql: Sql): Promise<Record<string, string>> {
+  return Object.fromEntries((await sql`select id, name from chains`).map((c) => [c.id, c.name]));
+}
