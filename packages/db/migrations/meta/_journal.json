@@ -15,6 +15,13 @@
       "when": 1795282869338,
       "tag": "0001_eager_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795359143390,
+      "tag": "0002_dear_red_wolf",
+      "breakpoints": true
     }
   ]
 }

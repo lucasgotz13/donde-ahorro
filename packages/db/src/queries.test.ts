@@ -53,6 +53,9 @@ describe.skipIf(!adminUrl)("product queries", () => {
     await period("dulce", "9-3-1", 300000, "2026-11-01", "2026-11-08", "2026-11-07");
     await period("dulceRepostero", "12-1-1", 280000, "2026-11-01", null, "2026-11-20");
     await period("leche", "15-1-1", 150000, "2026-11-01", null, "2026-11-20");
+    // S25: a "2DO AL 50%" at Día.
+    await sql`insert into product_promos (product_id, branch_id, slot, price, min_quantity, valid_from, valid_until, published)
+      values (${ids.dulce!}, '15-1-1', 1, 180000, 2, '2026-11-11', '2026-11-16', '2026-11-12')`;
   });
   afterAll(() => db?.drop());
 
@@ -105,7 +108,7 @@ describe.skipIf(!adminUrl)("product queries", () => {
           minPrice: 240000,
           maxPrice: 240000,
           lastSeen: "2026-11-12",
-          branches: [{ branchId: "15-1-1", name: "Día Almagro", address: "Medrano 800", price: 240000, lastSeen: "2026-11-12" }],
+          branches: [{ branchId: "15-1-1", name: "Día Almagro", address: "Medrano 800", price: 240000, lastSeen: "2026-11-12", promos: [{ price: 180000, minQuantity: 2, validFrom: "2026-11-11", validUntil: "2026-11-16" }] }],
         },
         {
           chainId: "coto",
@@ -114,8 +117,8 @@ describe.skipIf(!adminUrl)("product queries", () => {
           maxPrice: 270000,
           lastSeen: "2026-11-20",
           branches: [
-            { branchId: "12-1-2", name: "Coto Palermo", address: "Av. Santa Fe 3000", price: 260000, lastSeen: "2026-11-20" },
-            { branchId: "12-1-1", name: "Coto Caballito", address: "Av. Rivadavia 5000", price: 270000, lastSeen: "2026-11-20" },
+            { branchId: "12-1-2", name: "Coto Palermo", address: "Av. Santa Fe 3000", price: 260000, lastSeen: "2026-11-20", promos: [] },
+            { branchId: "12-1-1", name: "Coto Caballito", address: "Av. Rivadavia 5000", price: 270000, lastSeen: "2026-11-20", promos: [] },
           ],
         },
       ]);
@@ -224,8 +227,24 @@ describe.skipIf(!adminUrl)("product queries", () => {
     it("returns the given products with their cheapest price per chain, in the given order", async () => {
       const cart = await getCartProducts(sql, [ids.leche!, ids.dulce!, "999999"]);
       expect(cart).toEqual([
-        { id: ids.leche, description: "LECHE ENTERA LA SERENISIMA SACHET 1 LT", presentation: "1 lt", prices: { dia: 150000 } },
-        { id: ids.dulce, description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM", presentation: "400 grm", prices: { coto: 260000, dia: 240000 } },
+        {
+          id: ids.leche,
+          description: "LECHE ENTERA LA SERENISIMA SACHET 1 LT",
+          presentation: "1 lt",
+          prices: { dia: 150000 },
+          offers: { dia: [{ price: 150000, promos: [] }] },
+        },
+        {
+          id: ids.dulce,
+          description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM",
+          presentation: "400 grm",
+          prices: { coto: 260000, dia: 240000 },
+          // S25: every branch's offer, so the cart can price promotions by quantity.
+          offers: {
+            coto: [{ price: 260000, promos: [] }, { price: 270000, promos: [] }],
+            dia: [{ price: 240000, promos: [{ price: 180000, minQuantity: 2, validFrom: "2026-11-11", validUntil: "2026-11-16" }] }],
+          },
+        },
       ]);
     });
 

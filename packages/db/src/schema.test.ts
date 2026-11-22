@@ -35,6 +35,7 @@ describe.skipIf(!adminUrl)("database schema", () => {
       "payment_media",
       "payment_medium_aliases",
       "price_periods",
+      "product_promos",
       "products",
       "promotions",
     ]);
@@ -55,6 +56,17 @@ describe.skipIf(!adminUrl)("database schema", () => {
     await sql`insert into price_periods (product_id, branch_id, price, valid_from, last_seen) values (${id}, '10-1-200', 160000, '2026-11-19', '2026-11-19')`;
     const history = await sql`select price from price_periods where product_id = ${id} order by valid_from`;
     expect(history.map((p) => p.price)).toEqual([150000, 160000]);
+  });
+
+  // S25: a product promotion needs a group of at least one unit and a range that does not end before it starts.
+  it("rejects an invalid product promotion", async () => {
+    const id = await productId();
+    const insert = (minQuantity: number, validFrom: string, validUntil: string) =>
+      sql`insert into product_promos (product_id, branch_id, slot, price, min_quantity, valid_from, valid_until, published)
+        values (${id}, '10-1-200', 1, 100000, ${minQuantity}, ${validFrom}, ${validUntil}, '2026-11-15')`;
+    await expect(insert(0, "2026-11-11", "2026-11-16")).rejects.toThrow(/product_promos_min_quantity/);
+    await expect(insert(2, "2026-11-16", "2026-11-11")).rejects.toThrow(/product_promos_valid_range/);
+    await insert(2, "2026-11-16", "2026-11-16");
   });
 
   it("rejects a period that ends before it starts", async () => {

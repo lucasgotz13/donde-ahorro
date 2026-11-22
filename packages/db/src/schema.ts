@@ -5,6 +5,7 @@ import {
   check,
   date,
   doublePrecision,
+  index,
   integer,
   jsonb,
   numeric,
@@ -82,6 +83,36 @@ export const pricePeriods = pgTable(
     primaryKey({ columns: [t.productId, t.branchId, t.validFrom] }),
     uniqueIndex("price_periods_one_open").on(t.productId, t.branchId).where(sql`${t.validTo} is null`),
     check("price_periods_valid_range", sql`${t.validTo} is null or ${t.validTo} > ${t.validFrom}`),
+  ],
+);
+
+/**
+ * S25: the product promotions of the latest SEPA load (no history), up to two per product and branch (SEPA's promo1 and promo2).
+ * `price` is the unit price, averaged over the group for a multi-buy of `min_quantity` units. Dates are inclusive; null when unknown.
+ */
+export const productPromos = pgTable(
+  "product_promos",
+  {
+    productId: bigint({ mode: "number" })
+      .notNull()
+      .references(() => products.id),
+    branchId: text()
+      .notNull()
+      .references(() => branches.id),
+    slot: smallint().notNull(),
+    /** Integer cents of ARS. */
+    price: integer().notNull(),
+    minQuantity: smallint().notNull(),
+    validFrom: date(),
+    validUntil: date(),
+    /** The SEPA publication day that reported it. */
+    published: date().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productId, t.branchId, t.slot] }),
+    index("product_promos_branch").on(t.branchId),
+    check("product_promos_min_quantity", sql`${t.minQuantity} >= 1`),
+    check("product_promos_valid_range", sql`${t.validFrom} is null or ${t.validUntil} is null or ${t.validUntil} >= ${t.validFrom}`),
   ],
 );
 

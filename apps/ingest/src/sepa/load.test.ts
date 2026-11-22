@@ -38,6 +38,7 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
     brand: null,
     presentation: null,
     price,
+    promos: [],
     ...extra,
   });
   async function* stream(rows: PriceRow[]) {
@@ -49,6 +50,38 @@ describe.skipIf(!adminUrl)("SEPA load", () => {
     from price_periods pp join products p on p.id = pp.product_id
     where p.ean = ${code} or p.chain_product_code = ${code}
     order by pp.valid_from`;
+
+  const promos = (code: string) => sql`
+    select pr.slot, pr.price, pr.min_quantity as "minQuantity", pr.valid_from::text as "from", pr.valid_until::text as "until", pr.published::text as published
+    from product_promos pr join products p on p.id = pr.product_id
+    where p.ean = ${code}
+    order by pr.slot`;
+
+  // S25: product promotions are a snapshot of the chain's latest load.
+  it("stores a load's product promotions and replaces them with the chain's next load", async () => {
+    const twoForLess = { price: 75, minQuantity: 2, validFrom: "2026-11-11", validUntil: "2026-11-16" };
+    const percent = { price: 80, minQuantity: 1, validFrom: null, validUntil: null };
+    expect(await load("2026-11-11", row("P1", 100, { promos: [percent, twoForLess] }), row("P2", 100, { promos: [percent] }))).toMatchObject({ promos: 3 });
+    expect(await promos("P1")).toEqual([
+      { slot: 1, price: 80, minQuantity: 1, from: null, until: null, published: "2026-11-11" },
+      { slot: 2, price: 75, minQuantity: 2, from: "2026-11-11", until: "2026-11-16", published: "2026-11-11" },
+    ]);
+    await load("2026-11-12", row("P1", 100, { promos: [twoForLess] }), row("P2", 100));
+    expect(await promos("P1")).toEqual([{ slot: 1, price: 75, minQuantity: 2, from: "2026-11-11", until: "2026-11-16", published: "2026-11-12" }]);
+    expect(await promos("P2")).toEqual([]);
+  });
+
+  it("keeps newer product promotions when an older day is loaded", async () => {
+    await load("2026-11-13", row("P3", 100, { promos: [{ price: 90, minQuantity: 1, validFrom: null, validUntil: null }] }));
+    await load("2026-11-12", row("P3", 100));
+    expect((await promos("P3")).map((p) => p.price)).toEqual([90]);
+  });
+
+  it("keeps the cheapest promotion when a product is listed twice for a branch", async () => {
+    const promo = (price: number) => ({ price, minQuantity: 1, validFrom: null, validUntil: null });
+    await load("2026-11-14", row("P4", 100, { promos: [promo(90)] }), row("P4", 100, { promos: [promo(85)] }));
+    expect((await promos("P4")).map((p) => p.price)).toEqual([85]);
+  });
 
   // S8: only price changes are stored.
   it("opens a period for a price seen for the first time", async () => {
