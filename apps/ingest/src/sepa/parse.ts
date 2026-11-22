@@ -52,6 +52,17 @@ const coordinate = (value: string | undefined) => {
   return value && Number.isFinite(n) && n !== 0 ? n : null;
 };
 
+/**
+ * CABA is `AR-C`, but Carrefour also flags branches of Córdoba, Trelew and Buenos Aires province as `AR-C`: a postal code
+ * outside CABA's 1000–1499 rules a branch out, unless its locality names CABA (Coto writes a street number there).
+ */
+function inCaba(r: SepaRecord): boolean {
+  if (r.sucursales_provincia !== "AR-C") return false;
+  const postal = Number((r.sucursales_codigo_postal ?? "").replace(/\D/g, "") || 0);
+  if (!postal || (postal >= 1000 && postal <= 1499)) return true;
+  return /capital|ciudad aut[oó]noma|caba/i.test(r.sucursales_localidad ?? "");
+}
+
 const branchId = (r: SepaRecord) => `${r.id_comercio}-${r.id_bandera}-${r.id_sucursal}`;
 
 export function parseBranch(r: SepaRecord) {
@@ -62,7 +73,7 @@ export function parseBranch(r: SepaRecord) {
     address: `${r.sucursales_calle ?? ""} ${r.sucursales_numero ?? ""}`.trim(),
     lat: coordinate(r.sucursales_latitud),
     lng: coordinate(r.sucursales_longitud),
-    caba: r.sucursales_provincia === "AR-C",
+    caba: inCaba(r),
   };
 }
 
