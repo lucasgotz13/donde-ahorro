@@ -1,7 +1,8 @@
 import { getPaymentCatalog } from "@donde-ahorro/db/queries";
 import { sql } from "../../lib/db.ts";
 import { selectedConditions, selectedPaymentMethods } from "../../lib/selection.ts";
-import { saveAllPaymentMethods, savePaymentMethods } from "./actions.ts";
+import { savePaymentMethods } from "./actions.ts";
+import { SelectAllButton } from "./select-all-button.tsx";
 
 export const metadata = { title: "Tus medios de pago | Dónde Ahorro" };
 
@@ -33,13 +34,6 @@ export default async function PaymentMethodsPage({ searchParams }: { searchParam
         </p>
       )}
 
-      {/* Its own form, so the save button stays the main form's default (Enter). */}
-      <form action={saveAllPaymentMethods} className="add-all">
-        <button type="submit" className="link-button">
-          Agregar todos los medios de pago
-        </button>
-      </form>
-
       <form action={savePaymentMethods} className="branch-form">
         {catalog.conditions.length > 0 && (
           <fieldset>
@@ -59,6 +53,7 @@ export default async function PaymentMethodsPage({ searchParams }: { searchParam
 
         <fieldset>
           <legend className="section-title">Bancos y billeteras</legend>
+          <SelectAllButton />
           <ul className="rows">
             {entities.map((e) => (
               <li key={e.id} className="method-row">

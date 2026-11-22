@@ -420,8 +420,8 @@ a {
   cursor: pointer;
 }
 
-.add-all {
-  margin-top: 1rem;
+.select-all {
+  margin-bottom: 0.5rem;
 }
 
 .link-button:disabled {

@@ -57,18 +57,20 @@ test("the user's payment methods bring in their promotions", async ({ page }) =>
   await expect(coto).toContainText("25% de reintegro con Banco Galicia, tarjeta de crédito. Tope $10.000 por compra.");
 });
 
-// "una opcion dentro de medios de pago para agregar todos los medios de pago con un click".
-test("one click adds every payment method and keeps the saved programs", async ({ page }) => {
+// "un boton que seleccione todos los medios de pago, y luego el usuario dé click en guardar".
+test("a button checks every payment method and saving keeps them", async ({ page }) => {
   await page.goto("/medios");
-  await page.getByLabel("Comunidad Coto").check();
-  await page.getByRole("button", { name: "Guardar medios de pago" }).click();
-  await expect(page.getByRole("status")).toHaveText("Guardamos tus medios de pago.");
-  await page.getByRole("button", { name: "Agregar todos los medios de pago" }).click();
-  await expect(page.getByRole("status")).toHaveText("Guardamos tus medios de pago.");
   const galicia = page.getByRole("group", { name: "Banco Galicia" });
+  await page.getByRole("button", { name: "Seleccionar todos los medios de pago" }).click();
   await expect(galicia.getByLabel("Tarjeta de crédito")).toBeChecked();
   await expect(galicia.getByLabel("Tarjeta de débito")).toBeChecked();
-  await expect(page.getByLabel("Comunidad Coto")).toBeChecked();
+  await expect(page.getByLabel("Comunidad Coto")).not.toBeChecked();
+  await expect(page.getByRole("status")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Guardar medios de pago" }).click();
+  await expect(page.getByRole("status")).toHaveText("Guardamos tus medios de pago.");
+  await expect(galicia.getByLabel("Tarjeta de crédito")).toBeChecked();
+  await expect(galicia.getByLabel("Tarjeta de débito")).toBeChecked();
 });
 
 // S3, S20.
