@@ -20,6 +20,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=web-build /app/apps/web/.next/standalone ./
 COPY --from=web-build /app/apps/web/.next/static ./apps/web/.next/static
+# The standalone output leaves out public/ (service worker, offline page).
+COPY --from=web-build /app/apps/web/public ./apps/web/public
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
 
