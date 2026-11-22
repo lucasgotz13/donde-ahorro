@@ -1,5 +1,5 @@
 import { bestPrice, cheapestSteps, staleness } from "@donde-ahorro/core";
-import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, similarProducts } from "@donde-ahorro/db/queries";
+import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, promotionCoverage, similarProducts } from "@donde-ahorro/db/queries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "../../../lib/db.ts";
@@ -7,7 +7,7 @@ import { dayLabel, parseDay, toCatalogNames, weekOf } from "../../../lib/payment
 import { addProductToCart } from "../../carrito/actions.ts";
 import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from "../../../lib/selection.ts";
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
-import { Breakdown } from "../../_components/breakdown.tsx";
+import { Breakdown, PromosNotReported } from "../../_components/breakdown.tsx";
 import { Price } from "../../_components/price.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
 
@@ -42,9 +42,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
     similarProducts(sql, id),
   ]);
   if (!product) notFound();
-  const [promotions, catalog] = await Promise.all([
+  const [promotions, catalog, coverage] = await Promise.all([
     getPromotions(sql, product.chains.map((c) => c.chainId)),
     getPaymentCatalog(sql),
+    promotionCoverage(sql),
   ]);
   const names = toCatalogNames(catalog);
   const promoById = new Map(promotions.map((p) => [p.id, p]));
@@ -153,6 +154,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                       {freshnessLabel(chain.lastSeen, today)}
                     </span>
                     {!changed && steps[0] && steps[0].from < chain.lastSeen && `, sin cambios desde el ${shortDate(steps[0].from)}`}
+                    {!coverage[chain.chainId] && <PromosNotReported />}
                   </p>
                 </div>
                 <div className="chain-price">

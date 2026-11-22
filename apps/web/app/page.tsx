@@ -15,7 +15,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <h1 className="headline">¿Qué querés comprar?</h1>
       <p className="lede">
         Precios de Coto, Carrefour, Día, Disco, Jumbo y Vea en CABA, del registro oficial SEPA.
-        {lastUpdate && ` Últimos precios publicados el ${updated.format(lastUpdate)}.`}
+        {lastUpdate && ` Últimos precios publicados el ${updated.format(lastUpdate)}.`} <Link href="/estado">Estado de los datos</Link>
       </p>
       <form className="search" action="/" role="search">
         <label htmlFor="q" className="visually-hidden">

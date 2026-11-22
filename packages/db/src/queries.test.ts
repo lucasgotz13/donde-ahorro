@@ -4,6 +4,8 @@ import {
   getBranches,
   getCartProducts,
   getChainNames,
+  getSourceStatus,
+  promotionCoverage,
   getPaymentCatalog,
   getPriceHistory,
   getProduct,
@@ -235,6 +237,40 @@ describe.skipIf(!adminUrl)("product queries", () => {
       const [dulce] = await getCartProducts(sql, [ids.dulce!], ["12-1-1"]);
       expect(dulce!.prices).toEqual({ coto: 270000 });
       expect(await getCartProducts(sql, [])).toEqual([]);
+    });
+  });
+
+  // S23: the ingest-run log as the /estado page shows it; S11: whose promotions we have.
+  describe("source status", () => {
+    const now = new Date("2026-11-21T18:00:00Z");
+    beforeAll(async () => {
+      await sql`delete from ingest_runs`;
+      await sql`insert into ingest_runs (source, status, started_at, finished_at, source_last_modified, message) values
+        ('sepa', 'succeeded', '2026-11-20T17:00:00Z', '2026-11-20T17:05:00Z', '2026-11-20T16:19:00Z', null),
+        ('sepa', 'skipped', '2026-11-21T17:00:00Z', '2026-11-21T17:00:01Z', '2026-11-20T16:19:00Z', 'SEPA ZIP for sabado not published yet'),
+        ('coto', 'succeeded', '2026-11-21T17:01:00Z', '2026-11-21T17:01:05Z', null, null),
+        ('carrefour', 'succeeded', '2026-11-18T17:01:00Z', '2026-11-18T17:01:05Z', null, null),
+        ('carrefour', 'failed', '2026-11-21T17:01:00Z', '2026-11-21T17:01:02Z', null, 'Error: HTTP 503')`;
+    });
+
+    it("getSourceStatus gives each source's last run and last success", async () => {
+      const status = await getSourceStatus(sql);
+      expect(status.map((s) => [s.source, s.lastRun?.status, s.lastRun?.message, s.lastSuccess?.toISOString()])).toEqual([
+        ["sepa", "skipped", "SEPA ZIP for sabado not published yet", "2026-11-20T17:05:00.000Z"],
+        ["coto", "succeeded", null, "2026-11-21T17:01:05.000Z"],
+        ["carrefour", "failed", "Error: HTTP 503", "2026-11-18T17:01:05.000Z"],
+      ]);
+      expect(status[0]!.publishedAt?.toISOString()).toBe("2026-11-20T16:19:00.000Z");
+    });
+
+    it("promotionCoverage marks chains whose promotions were scraped in the last 48 hours", async () => {
+      expect(await promotionCoverage(sql, now)).toEqual({
+        coto: true,
+        "carrefour-hiper": false,
+        "carrefour-market": false,
+        "carrefour-express": false,
+        "carrefour-maxi": false,
+      });
     });
   });
 });

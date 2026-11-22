@@ -1,4 +1,5 @@
 import type { PriceBreakdown, Promotion } from "@donde-ahorro/core";
+import Link from "next/link";
 import { priceText } from "../../lib/format.ts";
 import { describePromotion, type CatalogNames } from "../../lib/payments.ts";
 
@@ -21,5 +22,17 @@ export function Breakdown({ best, promoById, names }: { best: PriceBreakdown; pr
         ))}
       </ul>
     </div>
+  );
+}
+
+/** S11: we could not read this chain's promotions, so its price may be lower than shown. */
+export function PromosNotReported() {
+  return (
+    <>
+      {" "}
+      <Link href="/estado" className="stale-note promos-missing" title="No pudimos leer las promos de esta cadena: el precio puede ser menor.">
+        Promos no informadas
+      </Link>
+    </>
   );
 }
