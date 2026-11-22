@@ -77,6 +77,23 @@ describe("parseBranch", () => {
     expect(branches.filter((b) => b.caba).map((b) => b.id)).toEqual(["12-1-44", "12-1-56"]);
     expect(branches[0]).toMatchObject({ name: "MONROE", address: "Av. Monroe 3284", lat: -34.5635828, lng: -58.4684123 });
   });
+
+  // Carrefour flags branches of Córdoba, Trelew and Buenos Aires province as AR-C; their postal code gives them away.
+  it.each([
+    ["5016", "Cacheuta", false],
+    ["9100", "Trelew", false],
+    ["1832", "Temperley", false],
+    ["1425", "CIUDAD AUTONOMA BUENOS AIRES", true],
+    ["00001416", "CAPITAL FEDERAL", true],
+    ["C1406", "CABA", true],
+    ["", "", true],
+    // Coto's "1558" is the street number; the locality says CABA.
+    ["1558", "Capital Federal", true],
+    ["1878", "Ciudad Autónoma de Buenos Aires", true],
+  ])("postal code %s in %s is CABA: %s", (postal, locality, caba) => {
+    const record = { id_comercio: "10", id_bandera: "3", id_sucursal: "1", sucursales_provincia: "AR-C", sucursales_codigo_postal: postal, sucursales_localidad: locality };
+    expect(parseBranch(record).caba).toBe(caba);
+  });
 });
 
 describe("parsePriceRow", () => {

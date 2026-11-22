@@ -1,9 +1,10 @@
-// Ingest worker: S21 schedule (14:00 ART, hourly until 20:00) for SEPA prices and promotions.
+// Ingest worker: S21 schedule (14:00 ART, hourly until 20:00) for SEPA prices, branch geocoding and promotions.
 import { tmpdir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import { migrate } from "@donde-ahorro/db";
 import postgres from "postgres";
 import { runCarrefour } from "./promotions/carrefour/run.ts";
+import { geocodeBranches } from "./georef/geocode.ts";
 import { runCoto } from "./promotions/coto/run.ts";
 import { nextTick, runDueJobs, type Job } from "./schedule.ts";
 import { runSepa } from "./sepa/run.ts";
@@ -16,6 +17,9 @@ const sql = postgres(url, { onnotice: () => {} });
 const jobs: Job[] = [
   // A skipped SEPA run means today's ZIP is not out yet: retry next hour.
   { source: "sepa", doneStatuses: ["succeeded"], run: () => runSepa(sql, { workDir: process.env.SEPA_WORK_DIR ?? tmpdir() }) },
+  // S3: geocode new or changed branch addresses; usually none, so no request.
+  // shortcut: a branch SEPA adds after today's geocoding run waits until tomorrow; chain it to the SEPA job if that matters.
+  { source: "georef", doneStatuses: ["succeeded"], run: () => geocodeBranches(sql) },
   // S22: one promo run per day; a skipped run means the source is disabled.
   { source: "coto", doneStatuses: ["succeeded", "skipped"], run: () => runCoto(sql) },
   { source: "carrefour", doneStatuses: ["succeeded", "skipped"], run: () => runCarrefour(sql) },
