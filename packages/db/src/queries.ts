@@ -1,4 +1,4 @@
-import type { Cents, IsoDate } from "@donde-ahorro/core";
+import type { Cents, IsoDate, Promotion } from "@donde-ahorro/core";
 import type postgres from "postgres";
 
 type Sql = postgres.Sql;
@@ -206,4 +206,44 @@ export function getBranches(sql: Sql, ids: string[]): Promise<BranchSummary[]> {
     select ${branchColumns(sql)} from branches b join chains c on c.id = b.chain_id
     where b.id = any(${ids}::text[])
     order by c.name, b.name`;
+}
+
+/** S12: the stored promotions of these chains, as the core model `bestPrice` takes. */
+export async function getPromotions(sql: Sql, chainIds: string[]): Promise<Promotion[]> {
+  if (!chainIds.length) return [];
+  const rows = await sql`
+    select id, chain_id, kind, percent::float8 as percent, entity_id, payment_medium_id, weekdays,
+      cap_amount, cap_period, cap_unknown, channel, valid_from::text, valid_to::text, legal_text, stackable, conditions
+    from promotions where chain_id = any(${chainIds}::text[]) order by id`;
+  return rows.map((r) => ({
+    id: r.id,
+    chainId: r.chain_id,
+    kind: r.kind,
+    percent: r.percent,
+    entity: r.entity_id,
+    paymentMedium: r.payment_medium_id,
+    weekdays: r.weekdays,
+    cap: r.cap_unknown ? "unknown" : r.cap_amount === null ? null : { amount: r.cap_amount, period: r.cap_period },
+    channel: r.channel,
+    validFrom: r.valid_from,
+    validTo: r.valid_to,
+    legalText: r.legal_text,
+    ...(r.stackable !== null && { stackable: r.stackable }),
+    conditions: r.conditions,
+  }));
+}
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+}
+
+/** S18: what the user can say they have: entities some promotion names, every medium and condition. */
+export async function getPaymentCatalog(sql: Sql): Promise<{ entities: CatalogItem[]; media: CatalogItem[]; conditions: CatalogItem[] }> {
+  const [entities, media, conditions] = await Promise.all([
+    sql<CatalogItem[]>`select id, name from entities e where exists (select 1 from promotions p where p.entity_id = e.id) order by name`,
+    sql<CatalogItem[]>`select id, name from payment_media order by name`,
+    sql<CatalogItem[]>`select id, name from eligibility_conditions order by name`,
+  ]);
+  return { entities, media, conditions };
 }

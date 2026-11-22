@@ -1,14 +1,15 @@
-import { cheapestSteps, staleness } from "@donde-ahorro/core";
-import { getPriceHistory, getProduct, similarProducts } from "@donde-ahorro/db/queries";
+import { bestPrice, cheapestSteps, staleness } from "@donde-ahorro/core";
+import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, similarProducts } from "@donde-ahorro/db/queries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "../../../lib/db.ts";
-import { selectedBranchIds } from "../../../lib/selection.ts";
+import { dayLabel, describePromotion, parseDay, weekOf, type CatalogNames } from "../../../lib/payments.ts";
+import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from "../../../lib/selection.ts";
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
 import { Price } from "../../_components/price.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string; dia?: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
@@ -19,18 +20,43 @@ export async function generateMetadata({ params }: Props) {
 export default async function ProductPage({ params, searchParams }: Props) {
   const { id } = await params;
   if (!/^\d+$/.test(id)) notFound();
-  const mine = await selectedBranchIds();
+  const search = await searchParams;
+  const [mine, methods, conditions] = await Promise.all([selectedBranchIds(), selectedPaymentMethods(), selectedConditions()]);
   // S3: only the user's branches, unless they ask for all of CABA.
-  const showAll = (await searchParams).todas === "1";
+  const showAll = search.todas === "1";
   const filter = mine.length && !showAll ? mine : undefined;
+  const today = todayInArgentina();
+  const day = parseDay(search.dia, today);
+  const href = (changes: { todas?: boolean; dia?: string }) => {
+    const todas = changes.todas ?? showAll;
+    const dia = changes.dia ?? day;
+    const q = new URLSearchParams({ ...(todas && { todas: "1" }), ...(dia !== today && { dia }) }).toString();
+    return `/producto/${id}${q ? `?${q}` : ""}`;
+  };
+
   const [product, history, similar] = await Promise.all([
     getProduct(sql, id, filter),
     getPriceHistory(sql, id, filter),
     similarProducts(sql, id),
   ]);
   if (!product) notFound();
+  const [promotions, catalog] = await Promise.all([
+    getPromotions(sql, product.chains.map((c) => c.chainId)),
+    getPaymentCatalog(sql),
+  ]);
+  const names: CatalogNames = {
+    entities: Object.fromEntries(catalog.entities.map((e) => [e.id, e.name])),
+    media: Object.fromEntries(catalog.media.map((m) => [m.id, m.name])),
+    conditions: Object.fromEntries(catalog.conditions.map((c) => [c.id, c.name])),
+  };
+  const promoById = new Map(promotions.map((p) => [p.id, p]));
 
-  const today = todayInArgentina();
+  // S13–S16, S19: each chain's best effective price on the chosen day with the user's methods.
+  // shortcut: in-store only, since prices come from branches; add the channel when online prices exist.
+  const context = { day, channel: "in-store" as const, paymentMethods: methods, conditions };
+  const priced = product.chains
+    .map((chain) => ({ chain, best: bestPrice(chain.minPrice, promotions.filter((p) => p.chainId === chain.chainId), context) }))
+    .sort((a, b) => a.best.effective - b.best.effective || a.chain.minPrice - b.chain.minPrice);
   const stepsByChain = new Map(
     product.chains.map((c) => [c.chainId, cheapestSteps(history.filter((h) => h.chainId === c.chainId))]),
   );
@@ -41,7 +67,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
     min: Math.min(...prices),
     max: Math.max(...prices),
   };
-  const cheapest = product.chains[0]?.minPrice;
+  const cheapest = priced[0]?.best.effective;
 
   return (
     <main className="page">
@@ -53,11 +79,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <p className="scope">
         {filter ? (
           <>
-            En tus {mine.length === 1 ? "sucursal" : `${mine.length} sucursales`}. <Link href={`/producto/${id}?todas=1`}>Ver todas las de CABA</Link>
+            En tus {mine.length === 1 ? "sucursal" : `${mine.length} sucursales`}. <Link href={href({ todas: true })}>Ver todas las de CABA</Link>
           </>
         ) : mine.length ? (
           <>
-            En todas las sucursales de CABA. <Link href={`/producto/${id}`}>Ver solo las tuyas</Link>
+            En todas las sucursales de CABA. <Link href={href({ todas: false })}>Ver solo las tuyas</Link>
           </>
         ) : (
           <>
@@ -65,6 +91,25 @@ export default async function ProductPage({ params, searchParams }: Props) {
           </>
         )}
       </p>
+      <p className="scope">
+        {methods.length || conditions.length ? (
+          <>
+            Con tus medios de pago. <Link href="/medios">Cambiar</Link>
+          </>
+        ) : (
+          <>
+            Solo con las promos para todos los medios de pago. <Link href="/medios">Elegí los tuyos</Link>
+          </>
+        )}
+      </p>
+
+      <nav className="days" aria-label="Día de compra">
+        {weekOf(today).map((d) => (
+          <Link key={d} href={href({ dia: d })} aria-current={d === day ? "date" : undefined} scroll={false}>
+            {dayLabel(d, today)}
+          </Link>
+        ))}
+      </nav>
 
       {product.chains.length === 0 ? (
         <p className="notice">
@@ -74,14 +119,14 @@ export default async function ProductPage({ params, searchParams }: Props) {
         </p>
       ) : (
         <ol className="chains" aria-label="Precio por cadena, del más barato al más caro">
-          {product.chains.map((chain) => {
+          {priced.map(({ chain, best }) => {
             const { stale } = staleness(chain.lastSeen, today);
             const n = chain.branches.length;
             const steps = stepsByChain.get(chain.chainId)!;
             // One step means no change in the stored history: say so instead of drawing a flat line.
             const changed = steps.length > 1;
             return (
-              <li key={chain.chainId} className={`chain${chain.minPrice === cheapest ? " chain-cheapest" : ""}`}>
+              <li key={chain.chainId} className={`chain${best.effective === cheapest ? " chain-cheapest" : ""}`}>
                 <div>
                   <h2 className="chain-name">{chain.chainName}</h2>
                   <p className="chain-facts">
@@ -93,9 +138,30 @@ export default async function ProductPage({ params, searchParams }: Props) {
                   </p>
                 </div>
                 <div className="chain-price">
-                  <Price cents={chain.minPrice} size="lg" />
-                  {chain.maxPrice !== chain.minPrice && <span className="chain-range">hasta {priceText(chain.maxPrice)}</span>}
+                  <Price cents={best.effective} size="lg" />
+                  {best.applied.length > 0 ? (
+                    <span className="chain-range">sin promo {priceText(chain.minPrice)}</span>
+                  ) : (
+                    chain.maxPrice !== chain.minPrice && <span className="chain-range">hasta {priceText(chain.maxPrice)}</span>
+                  )}
                 </div>
+                {best.applied.length > 0 && (
+                  <div className="chain-promos">
+                    {best.refund > 0 && (
+                      <p className="refund">
+                        Pagás {priceText(best.paidAtCheckout)}, te reintegran {priceText(best.refund)}.
+                      </p>
+                    )}
+                    <ul>
+                      {best.applied.map((a) => (
+                        <li key={a.promotionId}>
+                          {describePromotion(promoById.get(a.promotionId)!, names)}
+                          {a.capped && " Llegás al tope."}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {changed && (
                   <Sparkline steps={steps} domain={domain} label={`Precio más bajo de ${chain.chainName} desde el ${shortDate(domain.start)}`} />
                 )}

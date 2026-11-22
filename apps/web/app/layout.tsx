@@ -21,9 +21,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <Link href="/" className="wordmark">
             Dónde Ahorro
           </Link>
-          <Link href="/sucursales" className="header-link">
-            {n === 0 ? "Elegí tus sucursales" : `Tus sucursales (${n})`}
-          </Link>
+          <nav className="header-links" aria-label="Tus datos">
+            <Link href="/sucursales" className="header-link">
+              {n === 0 ? "Sucursales" : `Sucursales (${n})`}
+            </Link>
+            <Link href="/medios" className="header-link">
+              Medios de pago
+            </Link>
+          </nav>
         </header>
         {children}
       </body>

@@ -380,6 +380,11 @@ a {
 .header-link {
   color: var(--muted);
   font-size: var(--step--1);
+  white-space: nowrap;
+}
+
+.wordmark {
+  white-space: nowrap;
 }
 
 .page {
@@ -422,12 +427,15 @@ a {
 }
 
 /* A legend does not take the heading's top margin; the fieldset carries the gap instead. */
-.branch-form fieldset + fieldset,
 .branch-form {
   padding-top: 1.5rem;
 }
 
-.branch-form legend {
+.branch-form > fieldset + fieldset {
+  margin-top: 1.5rem;
+}
+
+.branch-form > fieldset > legend {
   padding: 0 0 0.75rem;
   margin: 0;
 }
@@ -481,4 +489,93 @@ a {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.header-links {
+  display: flex;
+  gap: 1rem;
+}
+
+/* S19: day selector, a row of tabs for today and the next 6 days. */
+.days {
+  display: flex;
+  gap: 0.375rem;
+  margin: 1rem 0 0;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.days a {
+  flex: none;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--label);
+  color: var(--ink);
+  font-size: var(--step--1);
+  text-decoration: none;
+}
+
+.days a[aria-current] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--wall);
+  font-weight: 700;
+}
+
+/* S12, S15, S16: which promotions made the price, in plain words. */
+.chain-promos {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+}
+
+.chain-promos .refund {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+
+.chain-promos ul {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  color: var(--muted);
+}
+
+/* Payment methods: one row per entity, a chip per medium. */
+.method-row fieldset {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 0;
+}
+
+.method-entity {
+  padding: 0;
+  font-weight: 700;
+}
+
+.method-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: var(--step--1);
+  cursor: pointer;
+}
+
+.chip:has(input:checked) {
+  border-color: var(--ink);
+  font-weight: 700;
+}
+
+.chip input {
+  margin: 0;
+  accent-color: var(--ink);
 }
