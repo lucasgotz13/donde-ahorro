@@ -41,6 +41,11 @@ export const branches = pgTable("branches", {
   address: text().notNull(),
   lat: doublePrecision(),
   lng: doublePrecision(),
+  /** Georef's position for `geocoded_address`; null when Georef found none (SEPA's `lat`/`lng` are used then). */
+  geoLat: doublePrecision(),
+  geoLng: doublePrecision(),
+  /** The address last sent to Georef; null until then. A new SEPA address is geocoded again. */
+  geocodedAddress: text(),
 });
 
 /** S10: identified by EAN; without one, by the chain's own product code. */

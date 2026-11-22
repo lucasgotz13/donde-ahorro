@@ -193,15 +193,16 @@ export function nearestBranches(
   { lat, lng }: { lat: number; lng: number },
   limit = 10,
 ): Promise<(BranchSummary & { meters: number })[]> {
-  // Haversine on a 6,371 km sphere; a full scan of ~900 branches is instant.
+  // Haversine on a 6,371 km sphere; a full scan of ~900 branches is instant. Georef's position wins over SEPA's.
   return sql<(BranchSummary & { meters: number })[]>`
     select ${branchColumns(sql)},
       round(2 * 6371000 * asin(sqrt(
-        power(sin(radians(b.lat - ${lat}) / 2), 2) +
-        cos(radians(${lat})) * cos(radians(b.lat)) * power(sin(radians(b.lng - ${lng}) / 2), 2)
+        power(sin(radians(p.lat - ${lat}) / 2), 2) +
+        cos(radians(${lat})) * cos(radians(p.lat)) * power(sin(radians(p.lng - ${lng}) / 2), 2)
       )))::int as meters
     from branches b join chains c on c.id = b.chain_id
-    where b.lat is not null and b.lng is not null
+      cross join lateral (select coalesce(b.geo_lat, b.lat) as lat, coalesce(b.geo_lng, b.lng) as lng) p
+    where p.lat is not null and p.lng is not null
     order by meters, b.id
     limit ${limit}`;
 }

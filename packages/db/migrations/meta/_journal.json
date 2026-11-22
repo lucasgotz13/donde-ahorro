@@ -22,6 +22,13 @@
       "when": 1795359143390,
       "tag": "0002_dear_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795361319989,
+      "tag": "0003_safe_whirlwind",
+      "breakpoints": true
     }
   ]
 }

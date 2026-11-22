@@ -170,6 +170,18 @@ describe.skipIf(!adminUrl)("product queries", () => {
       expect(near[1]!.meters).toBeLessThan(2350);
     });
 
+    // Georef's position wins over SEPA's when it found the address.
+    it("nearestBranches uses the Georef position when there is one", async () => {
+      await sql`update branches set geo_lat = -34.6185, geo_lng = -58.4367, geocoded_address = address where id = '9-3-1'`;
+      try {
+        const near = await nearestBranches(sql, { lat: -34.6183, lng: -58.4365 }, 2);
+        expect(names(near)).toEqual(["Coto Caballito", "Jumbo Palermo"]);
+        expect(near[1]!.meters).toBeLessThan(50);
+      } finally {
+        await sql`update branches set geo_lat = null, geo_lng = null, geocoded_address = null where id = '9-3-1'`;
+      }
+    });
+
     it("searchBranches matches every word of chain, name or address, without accents", async () => {
       expect(names(await searchBranches(sql, "palermo"))).toEqual(["Coto Palermo", "Jumbo Palermo"]);
       expect(names(await searchBranches(sql, "coto palermo"))).toEqual(["Coto Palermo"]);
