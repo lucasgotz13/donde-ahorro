@@ -26,6 +26,7 @@ export const ENTITIES: Record<string, string> = {
   "club-la-nacion": "Club La Nación",
   "tarjeta-coto": "Tarjeta Coto (TCI)",
   "tarjeta-carrefour": "Tarjeta Carrefour",
+  "carrefour-cuenta-digital": "Cuenta Digital (Carrefour Banco)",
 };
 
 /** S18: canonical payment media. */
