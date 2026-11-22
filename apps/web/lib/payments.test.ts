@@ -1,6 +1,6 @@
 import type { Promotion } from "@donde-ahorro/core";
 import { describe, expect, it } from "vitest";
-import { MAX_PAYMENT_METHODS, dayLabel, describePromotion, parseConditions, parseDay, parsePaymentMethods, weekOf } from "./payments.ts";
+import { dayLabel, describePromotion, parseConditions, parseDay, parsePaymentMethods, weekOf } from "./payments.ts";
 
 describe("parsePaymentMethods", () => {
   it("keeps well-formed entity:medium pairs once", () =>
@@ -12,8 +12,7 @@ describe("parsePaymentMethods", () => {
   // "agregar todos los medios de pago con un click": today's catalog is 16 entities × 5 media.
   it("keeps up to 100 pairs, enough for every method of the catalog", () => {
     const pairs = Array.from({ length: 101 }, (_, i) => `bank-${i}:credit`).join(",");
-    expect(parsePaymentMethods(pairs)).toHaveLength(MAX_PAYMENT_METHODS);
-    expect(MAX_PAYMENT_METHODS).toBe(100);
+    expect(parsePaymentMethods(pairs)).toHaveLength(100);
   });
 });
 

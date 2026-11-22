@@ -1,14 +1,13 @@
 import { getPaymentCatalog } from "@donde-ahorro/db/queries";
 import { sql } from "../../lib/db.ts";
-import { MAX_PAYMENT_METHODS } from "../../lib/payments.ts";
 import { selectedConditions, selectedPaymentMethods } from "../../lib/selection.ts";
 import { savePaymentMethods } from "./actions.ts";
 import { SelectAllButton } from "./select-all-button.tsx";
 
 export const metadata = { title: "Tus medios de pago | Dónde Ahorro" };
 
-export default async function PaymentMethodsPage({ searchParams }: { searchParams: Promise<{ guardados?: string; recortados?: string }> }) {
-  const [catalog, methods, conditions, { guardados, recortados }] = await Promise.all([
+export default async function PaymentMethodsPage({ searchParams }: { searchParams: Promise<{ guardados?: string }> }) {
+  const [catalog, methods, conditions, { guardados }] = await Promise.all([
     getPaymentCatalog(sql),
     selectedPaymentMethods(),
     selectedConditions(),
@@ -32,7 +31,6 @@ export default async function PaymentMethodsPage({ searchParams }: { searchParam
       {guardados !== undefined && (
         <p className="notice" role="status">
           {guardados === "0" ? "Borramos tus medios de pago: solo se aplican las promos para todos." : "Guardamos tus medios de pago."}
-          {recortados && ` Solo entran ${MAX_PAYMENT_METHODS}: guardamos los primeros.`}
         </p>
       )}
 
