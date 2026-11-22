@@ -1,4 +1,4 @@
-import { bestPrice, cheapestSteps, staleness } from "@donde-ahorro/core";
+import { bestPrice, cheapestSteps, multiBuy, offerCost, staleness } from "@donde-ahorro/core";
 import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, promotionCoverage, similarProducts } from "@donde-ahorro/db/queries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -50,11 +50,18 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const names = toCatalogNames(catalog);
   const promoById = new Map(promotions.map((p) => [p.id, p]));
 
-  // S13–S16, S19: each chain's best effective price on the chosen day with the user's methods.
+  // S13–S16, S19, S25: each chain's best effective price on the chosen day: its cheapest branch after product
+  // promotions, then the user's payment methods.
   // shortcut: in-store only, since prices come from branches; add the channel when online prices exist.
   const context = { day, channel: "in-store" as const, paymentMethods: methods, conditions };
   const priced = product.chains
-    .map((chain) => ({ chain, best: bestPrice(chain.minPrice, promotions.filter((p) => p.chainId === chain.chainId), context) }))
+    .map((chain) => {
+      const branches = chain.branches.map((b) => ({ ...b, unit: offerCost(b, 1, day), multi: multiBuy(b, day) }));
+      const unit = Math.min(...branches.map((b) => b.unit));
+      const multi = branches.flatMap((b) => b.multi ?? []).reduce<(typeof branches)[number]["multi"]>((m, p) => (!m || p.price < m.price ? p : m), undefined);
+      const best = bestPrice(unit, promotions.filter((p) => p.chainId === chain.chainId), context);
+      return { chain, branches: branches.sort((a, b) => a.unit - b.unit), best, multi: multi && multi.price < unit ? multi : undefined };
+    })
     .sort((a, b) => a.best.effective - b.best.effective || a.chain.minPrice - b.chain.minPrice);
   const stepsByChain = new Map(
     product.chains.map((c) => [c.chainId, cheapestSteps(history.filter((h) => h.chainId === c.chainId))]),
@@ -138,7 +145,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         </p>
       ) : (
         <ol className="chains" aria-label="Precio por cadena, del más barato al más caro">
-          {priced.map(({ chain, best }) => {
+          {priced.map(({ chain, branches, best, multi }) => {
             const { stale } = staleness(chain.lastSeen, today);
             const n = chain.branches.length;
             const steps = stepsByChain.get(chain.chainId)!;
@@ -159,10 +166,16 @@ export default async function ProductPage({ params, searchParams }: Props) {
                 </div>
                 <div className="chain-price">
                   <Price cents={best.effective} size="lg" />
-                  {best.applied.length > 0 ? (
+                  {best.effective < chain.minPrice ? (
                     <span className="chain-range">sin promo {priceText(chain.minPrice)}</span>
                   ) : (
                     chain.maxPrice !== chain.minPrice && <span className="chain-range">hasta {priceText(chain.maxPrice)}</span>
+                  )}
+                  {/* S25: a multi-buy only holds for the whole group, so it is a note, not the price. */}
+                  {multi && (
+                    <span className="chain-range multi-buy">
+                      Llevando {multi.minQuantity}: {priceText(multi.price)} c/u
+                    </span>
                   )}
                 </div>
                 <Breakdown best={best} promoById={promoById} names={names} />
@@ -172,13 +185,13 @@ export default async function ProductPage({ params, searchParams }: Props) {
                 <details className="chain-branches">
                   <summary>Ver {n === 1 ? "la sucursal" : `las ${n} sucursales`}</summary>
                   <ul className="branch-list">
-                    {chain.branches.map((b) => (
+                    {branches.map((b) => (
                       <li key={b.branchId}>
                         <span>
                           {tidy(b.name)}
                           <span className="branch-address">{tidy(b.address)}</span>
                         </span>
-                        <Price cents={b.price} />
+                        <Price cents={b.unit} />
                       </li>
                     ))}
                   </ul>
