@@ -111,12 +111,12 @@ beforeAll(async () => {
 afterAll(() => new Promise((resolve) => server.close(resolve)));
 
 describe("scrapeCarrefour", () => {
-  it("checks robots.txt, identifies itself and asks only for promotions active now", async () => {
+  it("checks robots.txt, identifies itself and asks for promotions active in the next 7 days (S19)", async () => {
     requests.length = 0;
     expect(await scrapeCarrefour(base, new Date("2026-11-21T15:00:00Z"))).toEqual(parsed);
     expect(requests[0]).toMatch(/^\/robots\.txt /);
     const bp = new URL(requests.find((r) => r.startsWith("/api/dataentities/BP"))!.split(" ")[0]!, base).searchParams;
-    expect(bp.get("_where")).toBe("active=true AND ((active_from < 2026-11-21T15:00:00) AND (active_to > 2026-11-21T15:00:00))");
+    expect(bp.get("_where")).toBe("active=true AND ((active_from < 2026-11-28T15:00:00) AND (active_to > 2026-11-21T15:00:00))");
     expect(requests.every((r) => r.endsWith("donde-ahorro (self-hosted price comparison)"))).toBe(true);
   });
 

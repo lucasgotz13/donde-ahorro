@@ -80,6 +80,10 @@ export async function runPromotionSource(
         conditions: (p.rawConditions ?? []).map((c) => aliases.conditions![c]!),
       });
     }
+    // Every promotion rejected means the source changed (e.g. renamed logos), not that it has none: keep the old ones.
+    if (scraped.length && !rows.length) {
+      throw new Error(`every scraped promotion was rejected (${skipped.length}), first: ${skipped[0]!.reason}`);
+    }
     await sql.begin(async (tx) => {
       await upsertCatalog(tx);
       const aliasRows = (map: Record<string, string>, column: string) =>

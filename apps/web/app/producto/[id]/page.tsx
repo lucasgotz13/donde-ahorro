@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { sql } from "../../../lib/db.ts";
 import { dayLabel, parseDay, toCatalogNames, weekOf } from "../../../lib/payments.ts";
 import { addProductToCart } from "../../carrito/actions.ts";
+import { isProductId } from "../../../lib/cart.ts";
 import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from "../../../lib/selection.ts";
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
 import { Breakdown, PromosNotReported } from "../../_components/breakdown.tsx";
@@ -15,13 +16,14 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: 
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-  const product = /^\d+$/.test(id) ? await getProduct(sql, id) : undefined;
+  const product = isProductId(id) ? await getProduct(sql, id) : undefined;
   return { title: product ? `${sentenceCase(product.description)} | Dónde Ahorro` : "Dónde Ahorro" };
 }
 
 export default async function ProductPage({ params, searchParams }: Props) {
   const { id } = await params;
-  if (!/^\d+$/.test(id)) notFound();
+  // A bigint id only: a longer one would make Postgres throw instead of a 404.
+  if (!isProductId(id)) notFound();
   const search = await searchParams;
   const [mine, methods, conditions] = await Promise.all([selectedBranchIds(), selectedPaymentMethods(), selectedConditions()]);
   // S3: only the user's branches, unless they ask for all of CABA.

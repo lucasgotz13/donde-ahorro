@@ -41,10 +41,15 @@ function mediumOf(text: string): string | null {
  * promotion is current, so it holds for the 7-day selector (S19) until the next daily scrape replaces it.
  */
 function validity(text: string, today: string): [string, string] {
-  const found = [...text.matchAll(/\b(\d{2})\/(\d{2})(?:\/(\d{4}))?\b/gu)];
+  // The first two dates, in text order, are the period; later ones are not ("el reintegro se acredita el 15/12").
+  const found = [...text.matchAll(/\b(\d{2})\/(\d{2})(?:\/(\d{4}))?\b/gu)].slice(0, 2);
+  if (!found.length) return [today, addDays(today, 6)];
   const year = found.findLast((m) => m[3])?.[3] ?? today.slice(0, 4);
-  const days = found.map((m) => `${m[3] ?? year}-${m[2]}-${m[1]}`).sort();
-  return days.length ? [days[0]!, days.at(-1)!] : [today, addDays(today, 6)];
+  const [from, to = from] = found.map((m) => `${m[3] ?? year}-${m[2]}-${m[1]}`) as [string, string?];
+  if (from <= to) return [from, to];
+  // "del 28/12 al 03/01/2027" crosses the new year: move whichever end has no year of its own.
+  const shift = (day: string, years: number) => `${Number(day.slice(0, 4)) + years}${day.slice(4)}`;
+  return found[1]?.[3] ? [shift(from, -1), to] : [from, shift(to, 1)];
 }
 
 function toPromotion(p: CotoPromo, channel: "online" | "in-store", today: string): ScrapedPromotion | undefined {
