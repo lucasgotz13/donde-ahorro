@@ -24,5 +24,7 @@ EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
 
 FROM deps AS ingest
+# The SEPA adapter reads the nested ZIPs with the system unzip.
+RUN apt-get update && apt-get install -y --no-install-recommends unzip && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 CMD ["pnpm", "ingest"]

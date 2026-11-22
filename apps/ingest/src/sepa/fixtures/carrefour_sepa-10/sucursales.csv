@@ -1,0 +1,6 @@
+﻿id_comercio|id_bandera|id_sucursal|sucursales_nombre|sucursales_tipo|sucursales_calle|sucursales_numero|sucursales_latitud|sucursales_longitud|sucursales_observaciones|sucursales_barrio|sucursales_codigo_postal|sucursales_localidad|sucursales_provincia|sucursales_lunes_horario_atencion|sucursales_martes_horario_atencion|sucursales_miercoles_horario_atencion|sucursales_jueves_horario_atencion|sucursales_viernes_horario_atencion|sucursales_sabado_horario_atencion|sucursales_domingo_horario_atencion
+10|3|365|Nazca 1944|Autoservicio|Nazca|1944|-34.612145|-58.480997||Santa Rita|1416|Ciudad Autónoma de Buenos Aires|AR-C|08:00 a 20:00|08:00 a 20:00|08:00 a 20:00|08:00 a 20:00|08:00 a 20:00|08:00 a 20:00|10:30 a 20:00
+10|3|408|Perú 916|Autoservicio|Perú|916|-34.618745|-58.374322||San telmo|1068|Ciudad Autónoma de Buenos Aires|AR-C|07:00 a 20:00|07:00 a 20:00|07:00 a 20:00|07:00 a 20:00|07:00 a 20:00|07:00 a 20:00|11:00 a 20:00
+10|3|755|C.Tribulato 1279 (San Miguel)|Autoservicio|C Tribulato|1279|-34.541507|-58.713798|||1663|San Miguel|AR-B|07:00 A 22:00|07:00 A 22:00|07:00 A 22:00|07:00 A 22:00|07:00 A 22:00|07:00 A 22:00|09:00 A 20:00
+
+Ultima actualización: 2026-11-19T08:30:04-03:00
