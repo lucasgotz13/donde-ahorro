@@ -96,6 +96,12 @@ export const paymentMedia = pgTable("payment_media", {
   name: text().notNull(),
 });
 
+/** S12: canonical eligibility conditions a promotion can require (memberships, card networks). */
+export const eligibilityConditions = pgTable("eligibility_conditions", {
+  id: text().primaryKey(),
+  name: text().notNull(),
+});
+
 /** S18: per-adapter mapping from the raw names a source publishes to the catalog. */
 export const entityAliases = pgTable(
   "entity_aliases",
@@ -149,6 +155,8 @@ export const promotions = pgTable(
     legalText: text().notNull().default(""),
     /** `null`: the default for its kind (refunds stack, discounts do not). */
     stackable: boolean(),
+    /** Ids from `eligibility_conditions`, all required; empty means none. */
+    conditions: text().array().notNull().default(sql`'{}'`),
     scrapedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

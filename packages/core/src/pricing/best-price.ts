@@ -1,6 +1,7 @@
 import {
   acceptsPaymentMethod,
   isActiveOn,
+  meetsConditions,
   isStackable,
   requiresPaymentMethod,
   type Cents,
@@ -14,6 +15,8 @@ export interface PurchaseContext {
   day: IsoDate;
   channel: Channel;
   paymentMethods: PaymentMethod[];
+  /** Eligibility conditions the user meets (memberships, card networks); absent means none. */
+  conditions?: string[];
 }
 
 export interface AppliedPromotion {
@@ -41,7 +44,10 @@ export interface PriceBreakdown {
  */
 export function bestPrice(amount: Cents, promotions: Promotion[], context: PurchaseContext): PriceBreakdown {
   const applicable = promotions.filter(
-    (p) => isActiveOn(p, context.day) && (p.channel === "both" || p.channel === context.channel),
+    (p) =>
+      isActiveOn(p, context.day) &&
+      (p.channel === "both" || p.channel === context.channel) &&
+      meetsConditions(p, context.conditions),
   );
   const free = applicable.filter((p) => !requiresPaymentMethod(p));
 

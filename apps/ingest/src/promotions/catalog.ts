@@ -38,8 +38,17 @@ export const PAYMENT_MEDIA: Record<string, string> = {
   "account-money": "Dinero en cuenta",
 };
 
+/** S12: canonical eligibility conditions: what the user is or holds, besides how they pay. */
+export const CONDITIONS: Record<string, string> = {
+  "comunidad-coto": "Comunidad Coto",
+  "mi-carrefour": "Mi Carrefour",
+  "visa-nfc": "Visa con NFC (pago con el celular)",
+  "anses-o-mayor-60": "Beneficiario de ANSES o mayor de 60 años",
+};
+
 export async function upsertCatalog(sql: postgres.Sql | postgres.TransactionSql) {
   const rows = (catalog: Record<string, string>) => Object.entries(catalog).map(([id, name]) => ({ id, name }));
   await sql`insert into entities ${sql(rows(ENTITIES))} on conflict (id) do update set name = excluded.name`;
   await sql`insert into payment_media ${sql(rows(PAYMENT_MEDIA))} on conflict (id) do update set name = excluded.name`;
+  await sql`insert into eligibility_conditions ${sql(rows(CONDITIONS))} on conflict (id) do update set name = excluded.name`;
 }

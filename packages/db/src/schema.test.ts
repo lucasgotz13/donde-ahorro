@@ -28,6 +28,7 @@ describe.skipIf(!adminUrl)("database schema", () => {
     expect(tables.map((t) => t.table_name).sort()).toEqual([
       "branches",
       "chains",
+      "eligibility_conditions",
       "entities",
       "entity_aliases",
       "ingest_runs",

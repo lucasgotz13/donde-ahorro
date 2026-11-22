@@ -2,6 +2,7 @@ import { dateInArgentina, USER_AGENT } from "../../sepa/download.ts";
 import { parseCap } from "../cap.ts";
 import { assertAllowedByRobots } from "../robots.ts";
 import type { ScrapedPromotion } from "../store.ts";
+import { COTO_ALIASES } from "./aliases.ts";
 
 /** S11: Coto's public promotion list (`enviroment` is Coto's spelling). */
 export const COTO_PROMOS_URL =
@@ -55,13 +56,16 @@ function toPromotion(p: CotoPromo, channel: "online" | "in-store", today: string
   if (!p.dias.length) return void console.warn(`[coto] ${id} skipped: sin días`);
   const legalText = [p.descripcion, p.observacion].filter(Boolean).join(" ").trim();
   const [validFrom, validTo] = validity(legalText, today);
+  const icon = p.icono.trim();
+  const isCondition = icon in COTO_ALIASES.conditions!;
   return {
     id,
     chainId: "coto",
     // Coto titles them all "DE DESCUENTO", but the bank pays back what the terms call a "reintegro".
     kind: /reintegro/iu.test(legalText) ? "refund" : "discount",
     percent: Number(percent.replace(",", ".")),
-    rawEntity: p.icono.trim(),
+    rawEntity: isCondition ? null : icon,
+    ...(isCondition && { rawConditions: [icon] }),
     rawMedium: mediumOf(p.descripcion ?? ""),
     weekdays: p.dias.map((d) => d.id - 1),
     cap: parseCap(legalText),

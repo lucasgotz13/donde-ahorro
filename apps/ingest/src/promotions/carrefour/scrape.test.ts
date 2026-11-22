@@ -76,7 +76,12 @@ describe("parseCarrefourPromotions", () => {
   it("never turns a promotion without an entity into an any-entity one", () => {
     const [promo] = byId("4f9ac242-778f-11f0-b37f-f9b6f2b5c87b");
     expect(promo!.rawEntity).toBe("Si sos empleado/a público todos los jueves");
-    expect(new Set(parsed.filter((p) => p.rawEntity === null).map((p) => p.id.split(":")[1]))).toEqual(new Set(["41bd454d-0113-44ca-8848-c6950450ba95"]));
+    // Only "todos los medios de pago" and the Mi Carrefour membership (an eligibility condition) are any-entity.
+    const anyEntity = parsed.filter((p) => p.rawEntity === null);
+    expect(new Set(anyEntity.map((p) => p.id.split(":")[1]))).toEqual(
+      new Set(["41bd454d-0113-44ca-8848-c6950450ba95", "5b3a5ac4-b292-4228-9cc1-c8deab420fe8"]),
+    );
+    expect(anyEntity.filter((p) => p.rawConditions).every((p) => p.id.startsWith("carrefour:5b3a5ac4-"))).toBe(true);
   });
 
   it("names the entity from the card when the bank is missing", () => {
@@ -143,17 +148,20 @@ describe.skipIf(!adminUrl)("runCarrefour", () => {
     const reasons = new Set(run!.stats.skipped.map((s: { reason: string }) => s.reason));
     expect(reasons).toEqual(
       new Set([
-        "entidad desconocida: Mi Carrefour",
         "entidad desconocida: Ahorra con MODO. 10% Acumulable. Pagando desde tu App.",
         "entidad desconocida: Si sos empleado/a público todos los jueves",
         "entidad desconocida: Si sos empleada/o público todos los miércoles",
       ]),
     );
     expect(run!.stats.saved + run!.stats.skipped.length).toBe(92);
-    const rows = await sql`select id, chain_id, kind, percent, entity_id, payment_medium_id, weekdays, cap_amount, cap_period, cap_unknown, channel, valid_from, valid_to, stackable from promotions order by id`;
+    const rows = await sql`select id, chain_id, kind, percent, entity_id, payment_medium_id, conditions, weekdays, cap_amount, cap_period, cap_unknown, channel, valid_from, valid_to, stackable from promotions order by id`;
     expect(rows).toHaveLength(run!.stats.saved);
     expect(rows.filter((r) => r.id.startsWith("carrefour:84a8157a-")).map((r) => r.entity_id)).toContain("carrefour-cuenta-digital");
-    expect(rows.some((r) => r.entity_id === null && !r.id.startsWith("carrefour:41bd454d"))).toBe(false);
+    // Mi Carrefour is an eligibility condition, not an entity: it applies with any payment method.
+    expect(rows.filter((r) => r.id.startsWith("carrefour:5b3a5ac4-")).map((r) => [r.entity_id, r.conditions])).toEqual(
+      Array(4).fill([null, ["mi-carrefour", "anses-o-mayor-60"]]),
+    );
+    expect(rows.some((r) => r.entity_id === null && !/^carrefour:(41bd454d|5b3a5ac4)/.test(r.id))).toBe(false);
     expect(rows.find((r) => r.id === "carrefour:fde9dbc1-5134-4b4f-9279-14440543c66d:carrefour-hiper")).toMatchObject({
       chain_id: "carrefour-hiper",
       kind: "discount",
