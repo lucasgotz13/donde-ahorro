@@ -7,6 +7,6 @@ if (existsSync(".env")) process.loadEnvFile(".env");
 export default defineConfig({
   test: {
     passWithNoTests: true,
-    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts"],
+    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "apps/web/lib/**/*.test.ts"],
   },
 });

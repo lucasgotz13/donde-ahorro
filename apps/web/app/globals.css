@@ -1,0 +1,367 @@
+/* Tokens: a supermarket aisle. Cool fluorescent wall, white shelf labels, the yellow sale tag. */
+:root {
+  color-scheme: light;
+  --wall: #e9edf0;
+  --label: #ffffff;
+  --ink: #18212b;
+  --muted: #5e6b78;
+  --faded: #8c96a0;
+  --rule: #d3dae0;
+  --tag: #ffd400;
+  --tag-ink: #18212b;
+  --focus: #1f5fbf;
+
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+  --step-4: 3.5rem;
+  --gutter: 1rem;
+  --measure: 44rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --wall: #12171c;
+    --label: #1b2229;
+    --ink: #e8ecef;
+    --muted: #a3adb7;
+    --faded: #75808b;
+    --rule: #2b343d;
+    --focus: #7fb0ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--wall);
+  color: var(--ink);
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-size: var(--step-0);
+  line-height: 1.5;
+  font-variation-settings: "wdth" 100;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.page {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.25rem var(--gutter) 4rem;
+}
+
+.wordmark {
+  display: inline-block;
+  font-weight: 800;
+  font-variation-settings: "wdth" 75;
+  font-size: var(--step-1);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+/* Headlines are condensed, like the product line on a shelf label. */
+.headline {
+  margin: 2.5rem 0 1rem;
+  font-size: var(--step-3);
+  line-height: 1.05;
+  font-weight: 700;
+  font-variation-settings: "wdth" 75;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0 0 1.5rem;
+  max-width: 34rem;
+  color: var(--muted);
+}
+
+/* Search */
+.search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0.875rem;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--label);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step-1);
+}
+
+.search button {
+  padding: 0 1.25rem;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--wall);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notice {
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+}
+
+/* Result and similar-product lists: rows on one label, split by rules. */
+.rows {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--label);
+  border-radius: 6px;
+}
+
+.rows > li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.row-link {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 1rem;
+  align-items: baseline;
+  padding: 0.875rem 1rem;
+  text-decoration: none;
+}
+
+.row-link:hover .row-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.row-title {
+  font-weight: 600;
+}
+
+.row-meta {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.from {
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+/* The price, set like a shelf label: small sign, condensed figures, raised small cents. */
+.price {
+  display: inline-flex;
+  align-items: flex-start;
+  font-weight: 800;
+  font-variation-settings: "wdth" 62;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.price-sign {
+  font-size: 0.5em;
+  margin: 0.12em 0.08em 0 0;
+}
+
+.price-cents {
+  font-size: 0.45em;
+  margin: 0.1em 0 0 0.06em;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.price-sm {
+  font-size: var(--step-1);
+}
+
+.price-lg {
+  font-size: var(--step-4);
+}
+
+/* Product page */
+.back {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.product-meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+.section-title {
+  margin: 2.5rem 0 0.75rem;
+  font-size: var(--step-1);
+  font-weight: 700;
+  font-variation-settings: "wdth" 75;
+}
+
+.chains {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.chain {
+  background: var(--label);
+  border-radius: 6px;
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+  align-items: end;
+}
+
+.chain-name {
+  margin: 0;
+  font-size: var(--step-2);
+  font-weight: 700;
+  font-variation-settings: "wdth" 75;
+  line-height: 1.1;
+}
+
+.chain-facts {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+.chain-price {
+  text-align: right;
+}
+
+.chain-range {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+/* The one loud element: the cheapest chain wears the yellow sale tag. */
+.chain-cheapest .chain-price .price {
+  background: var(--tag);
+  color: var(--tag-ink);
+  padding: 0.12em 0.18em 0.08em;
+  border-radius: 4px;
+}
+
+.stale-note {
+  color: var(--faded);
+  text-decoration: underline dashed;
+  text-underline-offset: 3px;
+}
+
+.chain-history {
+  grid-column: 1 / -1;
+}
+
+.chain-branches {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+}
+
+.chain-branches summary {
+  cursor: pointer;
+  color: var(--muted);
+  width: fit-content;
+}
+
+.branch-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.branch-address {
+  display: block;
+  color: var(--muted);
+}
+
+/* Sparkline: one chain's cheapest price over time, on a scale shared by every chain. */
+.spark {
+  display: block;
+  width: 100%;
+  height: 44px;
+  overflow: visible;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-hit {
+  fill: transparent;
+}
+
+.spark-hit:hover {
+  fill: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.spark-caption {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
+@media (min-width: 40rem) {
+  .headline {
+    font-size: var(--step-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
