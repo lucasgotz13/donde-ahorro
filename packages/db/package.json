@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./queries": "./src/queries.ts",
     "./test-database": "./src/test-database.ts"
   },
   "scripts": {
@@ -12,6 +13,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@donde-ahorro/core": "workspace:*",
     "drizzle-orm": "0.45.4",
     "postgres": "4.1.1"
   },
