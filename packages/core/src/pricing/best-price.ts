@@ -72,7 +72,10 @@ export function bestPrice(amount: Cents, promotions: Promotion[], context: Purch
   return best;
 }
 
-/** Each non-stacking promotion alone, plus every subset of the stacking ones. */
+/**
+ * Each non-stacking promotion alone, plus every subset of the stacking ones with at most one promotion
+ * per entity: an entity pays one benefit per purchase (tiered plans like Naranja X 20/25/30% are alternatives).
+ */
 function* validCombinations(promotions: Promotion[]): Generator<Promotion[]> {
   const stacking = promotions.filter(isStackable);
   for (const p of promotions) if (!isStackable(p)) yield [p];
@@ -82,7 +85,9 @@ function* validCombinations(promotions: Promotion[]): Generator<Promotion[]> {
 
 function* subsets(items: Promotion[], start: number, chosen: Promotion[]): Generator<Promotion[]> {
   for (let i = start; i < items.length; i++) {
-    const next = [...chosen, items[i]!];
+    const item = items[i]!;
+    if (item.entity !== null && chosen.some((c) => c.entity === item.entity)) continue;
+    const next = [...chosen, item];
     yield next;
     yield* subsets(items, i + 1, next);
   }

@@ -151,6 +151,23 @@ describe("bestPrice", () => {
     expect(result.paymentMethod).toEqual({ entity: "galicia", medium: "credit" });
     expect(result.effective).toBe(7_500);
   });
+
+  // An entity pays one benefit per purchase: tiered promos (Naranja X plans 20/25/30%) are alternatives.
+  it("never combines two promotions of the same entity, even refunds", () => {
+    const result = bestPrice(
+      10_000,
+      [
+        promo({ id: "nx20", kind: "refund", percent: 20, entity: "naranja-x" }),
+        promo({ id: "nx25", kind: "refund", percent: 25, entity: "naranja-x" }),
+        promo({ id: "nx30", kind: "refund", percent: 30, entity: "naranja-x" }),
+        promo({ id: "any", kind: "refund", percent: 5 }),
+      ],
+      { ...context, paymentMethods: [{ entity: "naranja-x", medium: "credit" }] },
+    );
+    expect(result.applied.map((a) => a.promotionId).sort()).toEqual(["any", "nx30"]);
+    expect(result.refund).toBe(3_500);
+    expect(result.effective).toBe(6_500);
+  });
 });
 
 // S12: entity, payment medium, days, channel and validity decide whether a promotion applies.
