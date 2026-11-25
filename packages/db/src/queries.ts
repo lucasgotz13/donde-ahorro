@@ -19,6 +19,7 @@ export interface ProductMatch {
   description: string;
   brand: string | null;
   presentation: string | null;
+  imageUrl: string | null;
   /** Cheapest current price in any branch; `null` when no branch reports one. */
   minPrice: Cents | null;
   /** Chains with a current price. */
@@ -39,7 +40,7 @@ export async function searchProducts(sql: Sql, query: string, limit = 30): Promi
   // per-product chain count if the catalog or the latency grows.
   return sql<ProductMatch[]>`
     with matches as (
-      select id, description, brand, presentation
+      select id, description, brand, presentation, image_url
       from products
       where ean = ${query.trim()} or ${text} like all(${patterns}::text[])
     ), priced as (
@@ -48,9 +49,9 @@ export async function searchProducts(sql: Sql, query: string, limit = 30): Promi
         count(distinct substring(pp.branch_id from '^[0-9]+-[0-9]+'))::int as chains
       from matches m
       left join price_periods pp on pp.product_id = m.id and pp.valid_to is null
-      group by m.id, m.description, m.brand, m.presentation
+      group by m.id, m.description, m.brand, m.presentation, m.image_url
     )
-    select id::text, description, brand, presentation, "minPrice", chains
+    select id::text, description, brand, presentation, image_url as "imageUrl", "minPrice", chains
     from priced
     order by ${foldColumn(sql, sql`description`)} like ${starts} desc, chains desc, length(description), priced.id
     limit ${limit}`;
@@ -88,13 +89,14 @@ export interface ProductDetail {
   description: string;
   brand: string | null;
   presentation: string | null;
+  imageUrl: string | null;
   /** Current prices, cheapest chain first. */
   chains: ChainPrices[];
 }
 
 /** `branchIds` (S3): only the user's branches; chains without one are left out. */
 export async function getProduct(sql: Sql, id: string, branchIds?: string[]): Promise<ProductDetail | undefined> {
-  const [product] = await sql`select id::text, ean, description, brand, presentation from products where id = ${id}`;
+  const [product] = await sql`select id::text, ean, description, brand, presentation, image_url as "imageUrl" from products where id = ${id}`;
   if (!product) return;
   const rows = await sql`
     select b.chain_id, c.name as chain_name, b.id as branch_id, b.name, b.address, pp.price, pp.last_seen::text, ${promosOf(sql, sql`pp`)} as promos

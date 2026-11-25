@@ -10,6 +10,7 @@ import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from ".
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
 import { Breakdown, PromosNotReported } from "../../_components/breakdown.tsx";
 import { Price } from "../../_components/price.tsx";
+import { ImageCredit, ProductImage } from "../../_components/product-image.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ todas?: string; dia?: string; agregado?: string }> };
@@ -83,6 +84,12 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <p className="product-meta">
         {[product.brand && titleCase(product.brand), product.presentation, product.ean && `código ${product.ean}`].filter(Boolean).join(", ")}
       </p>
+      {product.imageUrl && (
+        <>
+          <ProductImage url={product.imageUrl} size="lg" />
+          <ImageCredit />
+        </>
+      )}
 
       <form action={addProductToCart} className="add-to-cart">
         <input type="hidden" name="productId" value={product.id} />

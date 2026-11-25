@@ -4,6 +4,13 @@ import { expect, test, type Page } from "@playwright/test";
 // Milk: Coto $1.500, Día $1.600, Jumbo $1.400. Coto: 25% refund with Galicia credit; Día: 50% off tomorrow only.
 // Oreo: Coto $980, Día $1.000 with "2DO AL 50%" ($750 each for 2), Jumbo $950 with a $850 product promo today only.
 
+// Product photos come from another site: never the live one.
+test.beforeEach(({ context }) =>
+  context.route("https://images.openfoodfacts.org/**", (route) =>
+    route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"/>' }),
+  ),
+);
+
 const chains = (page: Page) => page.locator(".chains > li");
 
 async function openYerba(page: Page) {
@@ -25,6 +32,22 @@ test("search finds a product and the cheapest chain wears the tag", async ({ pag
   await expect(chains(page).first().getByRole("img", { name: "$4.800,00" }).first()).toBeVisible();
   await expect(chains(page).first()).toContainText("actualizado ayer");
   await expect(chains(page).filter({ hasText: "Jumbo" })).toContainText("Promos no informadas");
+});
+
+test("a product shows its photo with its credit, and one without a photo shows neither", async ({ page }) => {
+  const photo = page.locator(".product-image img");
+  const credit = page.getByRole("link", { name: "Open Food Facts" });
+  await page.goto("/?q=yerba");
+  await expect(photo).toHaveAttribute("src", /openfoodfacts/);
+  await expect(credit).toBeVisible();
+  await page.getByRole("link", { name: /Yerba mate playadito/ }).click();
+  await expect(page.locator(".product-image-lg img")).toBeVisible();
+  await expect(credit).toBeVisible();
+
+  await page.goto("/?q=leche");
+  await expect(page.getByRole("link", { name: /Leche entera/ })).toBeVisible();
+  await expect(photo).toHaveCount(0);
+  await expect(credit).toHaveCount(0);
 });
 
 test("a product id too long for a bigint is not found, not a server error", async ({ page }) => {
