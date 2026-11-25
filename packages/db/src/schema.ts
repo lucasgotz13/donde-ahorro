@@ -59,6 +59,8 @@ export const products = pgTable(
     description: text().notNull(),
     brand: text(),
     presentation: text(),
+    /** Open Food Facts' 200 px front photo; null without one. */
+    imageUrl: text(),
   },
   (t) => [
     unique("products_ean").on(t.ean),

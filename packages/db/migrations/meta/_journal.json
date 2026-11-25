@@ -29,6 +29,13 @@
       "when": 1795361319989,
       "tag": "0003_safe_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795569904426,
+      "tag": "0004_minor_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

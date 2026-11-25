@@ -9,7 +9,7 @@ Self-hosted PWA that compares CABA supermarket prices every day, using SEPA pric
 | `packages/core` | Pure domain (pricing, promotions, branches). No network, no database. |
 | `packages/db` | Drizzle schema and SQL migrations for Postgres. |
 | `apps/web` | Next.js app: UI and API. |
-| `apps/ingest` | Worker that ingests SEPA prices and scrapes promotions. |
+| `apps/ingest` | Worker that ingests SEPA prices and scrapes promotions and links product photos (from the [Open Food Facts](https://openfoodfacts.org) dump, ~1.5 GB, weekly). |
 
 ## Requirements
 
