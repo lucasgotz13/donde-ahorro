@@ -39,7 +39,7 @@ describe.skipIf(!adminUrl)("product queries", () => {
       const [row] = await sql`insert into products ${sql(fields)} returning id::text`;
       ids[key] = row!.id;
     };
-    await product("dulce", { ean: "7790001", description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM", brand: "LA SERENISIMA", presentation: "400 grm" });
+    await product("dulce", { ean: "7790001", image_url: "https://images.openfoodfacts.org/images/products/dulce.200.jpg", description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM", brand: "LA SERENISIMA", presentation: "400 grm" });
     await product("dulceRepostero", { ean: "7790002", description: "DULCE DE LECHE REPOSTERO LA SERENISIMA POT 400 GRM", brand: "LA SERENISIMA", presentation: "400 grm" });
     await product("crema", { ean: "7790003", description: "CREMA DE LECHE LA SERENISIMA POT 200 CC", brand: "LA SERENISIMA", presentation: "200 cmq" });
     await product("bano", { ean: "7790004", description: "BAÑO REPOSTERO LECHE AGUILA SCH 150 GRM", brand: "AGUILA", presentation: "150 grm" });
@@ -83,11 +83,12 @@ describe.skipIf(!adminUrl)("product queries", () => {
         description: "DULCE DE LECHE CLASICO LA SERENISIMA POT 400 GRM",
         brand: "LA SERENISIMA",
         presentation: "400 grm",
+        imageUrl: "https://images.openfoodfacts.org/images/products/dulce.200.jpg",
         minPrice: 240000,
         chains: 2,
       });
       const [bano] = await searchProducts(sql, "baño");
-      expect(bano).toMatchObject({ minPrice: null, chains: 0 });
+      expect(bano).toMatchObject({ imageUrl: null, minPrice: null, chains: 0 });
     });
 
     it("returns nothing for a blank query or one without a word of 3 letters", async () => {
@@ -100,7 +101,7 @@ describe.skipIf(!adminUrl)("product queries", () => {
   describe("getProduct", () => {
     it("groups current prices by chain, cheapest chain first, with every branch", async () => {
       const product = await getProduct(sql, ids.dulce!);
-      expect(product).toMatchObject({ id: ids.dulce, ean: "7790001", brand: "LA SERENISIMA" });
+      expect(product).toMatchObject({ id: ids.dulce, ean: "7790001", brand: "LA SERENISIMA", imageUrl: "https://images.openfoodfacts.org/images/products/dulce.200.jpg" });
       expect(product!.chains).toEqual([
         {
           chainId: "dia",

@@ -38,8 +38,8 @@ await sql`insert into branches (id, chain_id, name, address, lat, lng) values
   ('12-1-2', 'coto', 'PALERMO', 'Av. Santa Fe 3000', -34.588, -58.411),
   ('15-1-1', 'dia', 'Almagro', 'Medrano 800', -34.603, -58.42),
   ('9-3-1', 'jumbo', 'Jumbo Palermo', 'Bullrich 345', -34.575, -58.427)`;
-const [yerba] = await sql`insert into products (ean, description, brand, presentation)
-  values ('7790001000001', 'YERBA MATE PLAYADITO PAQ 1 KGM', 'PLAYADITO', '1 kgm') returning id`;
+const [yerba] = await sql`insert into products (ean, description, brand, presentation, image_url)
+  values ('7790001000001', 'YERBA MATE PLAYADITO PAQ 1 KGM', 'PLAYADITO', '1 kgm', 'https://images.openfoodfacts.org/images/products/779/000/100/0001/front_es.4.200.jpg') returning id`;
 const [leche] = await sql`insert into products (ean, description, brand, presentation)
   values ('7790001000002', 'LECHE ENTERA LA SERENISIMA SACHET 1 LT', 'LA SERENISIMA', '1 lt') returning id`;
 const [galletitas] = await sql`insert into products (ean, description, brand, presentation)

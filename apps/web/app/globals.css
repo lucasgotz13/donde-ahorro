@@ -166,6 +166,49 @@ a {
   font-size: var(--step--1);
 }
 
+.row-link-image {
+  grid-template-columns: 3.5rem 1fr auto;
+}
+
+.row-link-image .row-meta {
+  grid-column: 2 / -1;
+}
+
+/* Photos come on any background, so their box stays white in dark mode too. */
+.product-image {
+  display: block;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.product-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.product-image-sm {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  background: var(--wall);
+}
+
+.product-image-lg {
+  width: 12.5rem;
+  height: 12.5rem;
+  margin-top: 1rem;
+}
+
+.image-credit {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+
 .from {
   color: var(--muted);
   font-size: var(--step--1);

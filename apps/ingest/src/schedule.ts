@@ -21,13 +21,17 @@ export interface Job {
   source: string;
   /** Run statuses that mean the job is done for the day; anything else is retried at the next tick. */
   doneStatuses: ("succeeded" | "skipped")[];
+  /** A long job: waits for the day's last tick, where it cannot hold up another job's retries. */
+  lastTickOnly?: boolean;
   run: () => Promise<unknown>;
 }
 
 /** Runs, in order, every job without a done run today (Buenos Aires); one failing job never stops the rest. */
 export async function runDueJobs(sql: postgres.Sql, jobs: Job[], now = new Date()) {
   const today = dateInArgentina(now);
+  const lastTick = new Date(now.getTime() + OFFSET_MS).getUTCHours() >= LAST_HOUR;
   for (const job of jobs) {
+    if (job.lastTickOnly && !lastTick) continue;
     const [done] = await sql`select 1 from ingest_runs where source = ${job.source}
       and status = any(${job.doneStatuses}::ingest_status[])
       and (started_at at time zone 'America/Argentina/Buenos_Aires')::date = ${today}::date limit 1`;

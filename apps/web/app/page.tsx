@@ -3,6 +3,7 @@ import Link from "next/link";
 import { sql } from "../lib/db.ts";
 import { sentenceCase, titleCase } from "../lib/format.ts";
 import { Price } from "./_components/price.tsx";
+import { ImageCredit, ProductImage } from "./_components/product-image.tsx";
 
 const updated = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", timeZone: "America/Argentina/Buenos_Aires" });
 
@@ -35,7 +36,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <ul className="rows" aria-label={`Resultados para ${q}`}>
           {results.map((p) => (
             <li key={p.id}>
-              <Link href={`/producto/${p.id}`} className="row-link">
+              <Link href={`/producto/${p.id}`} className="row-link row-link-image">
+                <ProductImage url={p.imageUrl} />
                 <span className="row-title">{sentenceCase(p.description)}</span>
                 {p.minPrice !== null ? (
                   <span>
@@ -55,6 +57,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           ))}
         </ul>
       )}
+      {results.some((p) => p.imageUrl) && <ImageCredit />}
     </main>
   );
 }

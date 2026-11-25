@@ -63,4 +63,13 @@ describe.skipIf(!adminUrl)("runDueJobs", () => {
     await runDueJobs(sql, [job("sepa", ["succeeded"], true), job("coto")], now);
     expect(calls).toEqual(["sepa", "coto"]);
   });
+
+  it("runs a last-tick job only at 20:00, when it can no longer hold up a retry", async () => {
+    const jobs = [job("sepa"), { ...job("images"), lastTickOnly: true }];
+    await runDueJobs(sql, jobs, new Date("2026-11-21T22:00:00Z")); // 19:00 ART
+    expect(calls).toEqual(["sepa"]);
+    calls.length = 0;
+    await runDueJobs(sql, jobs, new Date("2026-11-21T23:00:01Z")); // 20:00 ART
+    expect(calls).toEqual(["sepa", "images"]);
+  });
 });
