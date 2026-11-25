@@ -25,8 +25,8 @@ export default async function PaymentMethodsPage({ searchParams }: { searchParam
     <main className="page">
       <h1 className="headline">Tus medios de pago</h1>
       <p className="lede">
-        Marcá con qué pagás y a qué programas pertenecés. Así los precios incluyen las promos que te corresponden. Se guarda en este
-        dispositivo.
+        Marcá con qué pagás y a qué programas pertenecés. Así cada producto muestra las promos que te corresponden y el carrito las
+        aplica. Se guarda en este dispositivo.
       </p>
 
       {guardados !== undefined && (

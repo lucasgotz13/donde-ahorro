@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Promotion } from "../promotions/promotion.ts";
-import { bestPrice, type PurchaseContext } from "./best-price.ts";
+import { availablePromotions, bestPrice, type PurchaseContext } from "./best-price.ts";
 
 const promo = (overrides: Partial<Promotion> & Pick<Promotion, "id">): Promotion => ({
   chainId: "coto",
@@ -208,5 +208,23 @@ describe("bestPrice applicability", () => {
     const result = bestPrice(10_000, [visa], { ...context, paymentMethods: [{ entity: "galicia", medium: "debit" }], conditions: ["visa-nfc"] });
     expect(result.applied.map((a) => a.promotionId)).toEqual(["visa"]);
     expect(bestPrice(10_000, [visa], { ...context, conditions: ["visa-nfc"] }).applied).toEqual([]);
+  });
+});
+
+describe("availablePromotions", () => {
+  it("keeps what the user can use that day: their methods, the channel and their conditions", () => {
+    const promotions = [
+      promo({ id: "everyone" }),
+      promo({ id: "mine", entity: "galicia", paymentMedium: "credit" }),
+      promo({ id: "other-bank", entity: "santander" }),
+      promo({ id: "other-medium", entity: "galicia", paymentMedium: "debit" }),
+      promo({ id: "other-day", weekdays: [5] }),
+      promo({ id: "online", channel: "online" }),
+      promo({ id: "members", conditions: ["comunidad-coto"] }),
+    ];
+    const ids = (c: PurchaseContext) => availablePromotions(promotions, c).map((p) => p.id);
+    expect(ids(context)).toEqual(["everyone", "mine"]);
+    expect(ids({ ...context, paymentMethods: [] })).toEqual(["everyone"]);
+    expect(ids({ ...context, conditions: ["comunidad-coto"] })).toEqual(["everyone", "mine", "members"]);
   });
 });
