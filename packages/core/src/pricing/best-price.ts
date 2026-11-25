@@ -38,17 +38,22 @@ export interface PriceBreakdown {
   capUnknown: boolean;
 }
 
+/** The promotions the user can use on `context.day`, with any of their payment methods. */
+export const availablePromotions = (promotions: Promotion[], context: PurchaseContext): Promotion[] =>
+  promotions.filter(
+    (p) =>
+      isActiveOn(p, context.day) &&
+      (p.channel === "both" || p.channel === context.channel) &&
+      meetsConditions(p, context.conditions) &&
+      (!requiresPaymentMethod(p) || context.paymentMethods.some((m) => acceptsPaymentMethod(p, m))),
+  );
+
 /**
  * Cheapest way to pay `amount` (one transaction at one chain) on `context.day`.
  * Tries every valid combination of the applicable promotions for each payment method.
  */
 export function bestPrice(amount: Cents, promotions: Promotion[], context: PurchaseContext): PriceBreakdown {
-  const applicable = promotions.filter(
-    (p) =>
-      isActiveOn(p, context.day) &&
-      (p.channel === "both" || p.channel === context.channel) &&
-      meetsConditions(p, context.conditions),
-  );
+  const applicable = availablePromotions(promotions, context);
   const free = applicable.filter((p) => !requiresPaymentMethod(p));
 
   let best = evaluate(amount, []);

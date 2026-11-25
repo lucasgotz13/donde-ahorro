@@ -1,4 +1,4 @@
-import { bestPrice, cheapestSteps, multiBuy, offerCost, staleness } from "@donde-ahorro/core";
+import { availablePromotions, cheapestSteps, multiBuy, offerCost, staleness } from "@donde-ahorro/core";
 import { getPaymentCatalog, getPriceHistory, getProduct, getPromotions, promotionCoverage, similarProducts } from "@donde-ahorro/db/queries";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,7 +8,7 @@ import { addProductToCart } from "../../carrito/actions.ts";
 import { isProductId } from "../../../lib/cart.ts";
 import { selectedBranchIds, selectedConditions, selectedPaymentMethods } from "../../../lib/selection.ts";
 import { freshnessLabel, priceText, sentenceCase, shortDate, tidy, titleCase, todayInArgentina } from "../../../lib/format.ts";
-import { Breakdown, PromosNotReported } from "../../_components/breakdown.tsx";
+import { AvailablePromos, PromosNotReported } from "../../_components/breakdown.tsx";
 import { Price } from "../../_components/price.tsx";
 import { ImageCredit, ProductImage } from "../../_components/product-image.tsx";
 import { Sparkline, type SparkDomain } from "../../_components/sparkline.tsx";
@@ -51,10 +51,9 @@ export default async function ProductPage({ params, searchParams }: Props) {
     promotionCoverage(sql),
   ]);
   const names = toCatalogNames(catalog);
-  const promoById = new Map(promotions.map((p) => [p.id, p]));
 
-  // S13–S16, S19, S25: each chain's best effective price on the chosen day: its cheapest branch after product
-  // promotions, then the user's payment methods.
+  // S19, S25: each chain's price on the chosen day: its cheapest branch after product promotions. Payment
+  // promotions are only listed here; the cart applies them, since caps hold for the whole purchase.
   // shortcut: in-store only, since prices come from branches; add the channel when online prices exist.
   const context = { day, channel: "in-store" as const, paymentMethods: methods, conditions };
   const priced = product.chains
@@ -62,10 +61,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
       const branches = chain.branches.map((b) => ({ ...b, unit: offerCost(b, 1, day), multi: multiBuy(b, day) }));
       const unit = Math.min(...branches.map((b) => b.unit));
       const multi = branches.flatMap((b) => b.multi ?? []).reduce<(typeof branches)[number]["multi"]>((m, p) => (!m || p.price < m.price ? p : m), undefined);
-      const best = bestPrice(unit, promotions.filter((p) => p.chainId === chain.chainId), context);
-      return { chain, branches: branches.sort((a, b) => a.unit - b.unit), best, multi: multi && multi.price < unit ? multi : undefined };
+      const available = availablePromotions(promotions.filter((p) => p.chainId === chain.chainId), context);
+      return { chain, branches: branches.sort((a, b) => a.unit - b.unit), unit, available, multi: multi && multi.price < unit ? multi : undefined };
     })
-    .sort((a, b) => a.best.effective - b.best.effective || a.chain.minPrice - b.chain.minPrice);
+    .sort((a, b) => a.unit - b.unit || a.chain.minPrice - b.chain.minPrice);
   const stepsByChain = new Map(
     product.chains.map((c) => [c.chainId, cheapestSteps(history.filter((h) => h.chainId === c.chainId))]),
   );
@@ -76,7 +75,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
     min: Math.min(...prices),
     max: Math.max(...prices),
   };
-  const cheapest = priced[0]?.best.effective;
+  const cheapest = priced[0]?.unit;
 
   return (
     <main className="page">
@@ -135,11 +134,11 @@ export default async function ProductPage({ params, searchParams }: Props) {
       <p className="scope">
         {methods.length || conditions.length ? (
           <>
-            Con tus medios de pago. <Link href="/medios">Cambiar</Link>
+            Promos según tus medios de pago; el descuento se aplica en el carrito. <Link href="/medios">Cambiar</Link>
           </>
         ) : (
           <>
-            Solo con las promos para todos los medios de pago. <Link href="/medios">Elegí los tuyos</Link>
+            Solo se muestran las promos para todos los medios de pago. <Link href="/medios">Elegí los tuyos</Link>
           </>
         )}
       </p>
@@ -160,14 +159,14 @@ export default async function ProductPage({ params, searchParams }: Props) {
         </p>
       ) : (
         <ol className="chains" aria-label="Precio por cadena, del más barato al más caro">
-          {priced.map(({ chain, branches, best, multi }) => {
+          {priced.map(({ chain, branches, unit, available, multi }) => {
             const { stale } = staleness(chain.lastSeen, today);
             const n = chain.branches.length;
             const steps = stepsByChain.get(chain.chainId)!;
             // One step means no change in the stored history: say so instead of drawing a flat line.
             const changed = steps.length > 1;
             return (
-              <li key={chain.chainId} className={`chain${best.effective === cheapest ? " chain-cheapest" : ""}`}>
+              <li key={chain.chainId} className={`chain${unit === cheapest ? " chain-cheapest" : ""}`}>
                 <div>
                   <h2 className="chain-name">{chain.chainName}</h2>
                   <p className="chain-facts">
@@ -180,8 +179,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
                   </p>
                 </div>
                 <div className="chain-price">
-                  <Price cents={best.effective} size="lg" />
-                  {best.effective < chain.minPrice ? (
+                  <Price cents={unit} size="lg" />
+                  {unit < chain.minPrice ? (
                     <span className="chain-range">sin promo {priceText(chain.minPrice)}</span>
                   ) : (
                     chain.maxPrice !== chain.minPrice && <span className="chain-range">hasta {priceText(chain.maxPrice)}</span>
@@ -193,7 +192,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
                     </span>
                   )}
                 </div>
-                <Breakdown best={best} promoById={promoById} names={names} />
+                <AvailablePromos promotions={available} names={names} />
                 {changed && (
                   <Sparkline steps={steps} domain={domain} label={`Precio más bajo de ${chain.chainName} desde el ${shortDate(domain.start)}`} />
                 )}

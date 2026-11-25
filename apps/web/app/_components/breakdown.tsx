@@ -25,12 +25,27 @@ export function Breakdown({ best, promoById, names }: { best: PriceBreakdown; pr
   );
 }
 
-/** S11: we could not read this chain's promotions, so its price may be lower than shown. */
+/** Promotions the user could use at a chain, listed without applying them: the cart does that on the whole purchase. */
+export function AvailablePromos({ promotions, names }: { promotions: Promotion[]; names: CatalogNames }) {
+  if (!promotions.length) return null;
+  return (
+    <div className="chain-promos">
+      <p className="chain-promos-title">Promos bancarias disponibles</p>
+      <ul>
+        {[...new Set(promotions.map((p) => describePromotion(p, names)))].map((text) => (
+          <li key={text}>{text}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** S11: we could not read this chain's promotions, so it may have some we do not show. */
 export function PromosNotReported() {
   return (
     <>
       {" "}
-      <Link href="/estado" className="stale-note promos-missing" title="No pudimos leer las promos de esta cadena: el precio puede ser menor.">
+      <Link href="/estado" className="stale-note promos-missing" title="No pudimos leer las promos de esta cadena: puede tener descuentos que no mostramos.">
         Promos no informadas
       </Link>
     </>

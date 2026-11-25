@@ -57,15 +57,24 @@ test("a product id too long for a bigint is not found, not a server error", asyn
 // S19: today by default, the next 7 days; a promotion applies only on its weekday.
 test("a weekday promotion applies only on its day", async ({ page }) => {
   await openYerba(page);
-  await expect(chains(page).first()).not.toContainText("sin promo");
+  await expect(chains(page).first()).not.toContainText("Promos bancarias disponibles");
 
   await page.getByRole("link", { name: "Mañana" }).click();
   await expect(page.getByRole("link", { name: "Mañana" })).toHaveAttribute("aria-current", "date");
   const dia = chains(page).first();
   await expect(dia).toContainText("Día");
-  await expect(dia.getByRole("img", { name: "$2.400,00" }).first()).toBeVisible();
-  await expect(dia).toContainText("sin promo $4.800,00");
+  // Listed, never applied to the product's price: that happens in the cart.
+  await expect(dia.getByRole("img", { name: "$4.800,00" }).first()).toBeVisible();
+  await expect(dia).not.toContainText("sin promo");
+  await expect(dia).toContainText("Promos bancarias disponibles");
   await expect(dia).toContainText("50% de descuento con cualquier medio de pago.");
+
+  await page.getByRole("button", { name: "Agregar al carrito" }).click();
+  await expect(page.getByRole("status")).toContainText("Agregado.");
+  await page.goto("/carrito");
+  await page.getByRole("link", { name: "Mañana" }).click();
+  await expect(chains(page).first().getByRole("img", { name: "$2.400,00" })).toBeVisible();
+  await expect(chains(page).first()).toContainText("sin promo $4.800,00");
 });
 
 // S13–S15, S18, S20.
@@ -77,11 +86,19 @@ test("the user's payment methods bring in their promotions", async ({ page }) =>
   await expect(page.getByRole("group", { name: "Banco Galicia" }).getByLabel("Tarjeta de crédito")).toBeChecked();
 
   await openYerba(page);
-  const coto = chains(page).first();
-  await expect(coto).toContainText("Coto");
-  await expect(coto.getByRole("img", { name: "$3.750,00" }).first()).toBeVisible();
-  await expect(coto).toContainText("Pagás $5.000,00, te reintegran $1.250,00.");
+  // The refund does not change the price or the order: Día stays the cheapest.
+  await expect(chains(page).first()).toContainText("Día");
+  const coto = chains(page).filter({ hasText: "Coto" });
+  await expect(coto.getByRole("img", { name: "$5.000,00" }).first()).toBeVisible();
+  await expect(coto).toContainText("Promos bancarias disponibles");
+  await expect(coto).not.toContainText("te reintegran");
   await expect(coto).toContainText("25% de reintegro con Banco Galicia, tarjeta de crédito. Tope $10.000 por compra.");
+
+  await page.getByRole("button", { name: "Agregar al carrito" }).click();
+  await expect(page.getByRole("status")).toContainText("Agregado.");
+  await page.goto("/carrito");
+  await expect(coto.getByRole("img", { name: "$3.750,00" })).toBeVisible();
+  await expect(coto).toContainText("Pagás $5.000,00, te reintegran $1.250,00.");
 });
 
 // "un boton que seleccione todos los medios de pago, y luego el usuario dé click en guardar".
